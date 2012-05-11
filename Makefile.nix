@@ -1,11 +1,13 @@
 include rules.nix
 
-.PHONY: all
+.PHONY: libnet loader
 
-all: build_loader
+libnet:
+	$(MAKE) -f libnet/Makefile.nix all
 
-build_loader
-	$(MAKE) -wC loader
+loader:
+	$(MAKE) -f loader/Makefile.nix all
 
 clean:
-	$(MAKE) -wC loader clean
+	$(MAKE) -f libnet/Makefile.nix clean
+	$(MAKE) -f loader/Makefile.nix clean
