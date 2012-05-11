@@ -1,13 +1,16 @@
 include rules.nix
 
-.PHONY: libnet loader
+.PHONY: libnet loader test
 
 libnet:
-	$(MAKE) -f libnet/Makefile.nix all
+	$(MAKE) -C libnet -f Makefile.nix static
 
 loader:
-	$(MAKE) -f loader/Makefile.nix all
+	$(MAKE) -C loader -f Makefile.nix all
 
-clean:
-	$(MAKE) -f libnet/Makefile.nix clean
-	$(MAKE) -f loader/Makefile.nix clean
+clean: 
+	$(MAKE) -C libnet -f Makefile.nix clean
+	$(MAKE) -C loader -f Makefile.nix clean
+
+test:
+	
