@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>QRRMainWinClass</class>
+ <widget class="QMainWindow" name="QRRMainWinClass">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>800</width>
+    <height>600</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>RRLoader</string>
+  </property>
+  <widget class="QWidget" name="centralwidget"/>
+  <widget class="QMenuBar" name="menubar">
+   <property name="geometry">
+    <rect>
+     <x>0</x>
+     <y>0</y>
+     <width>800</width>
+     <height>21</height>
+    </rect>
+   </property>
+   <widget class="QMenu" name="menu_File">
+    <property name="title">
+     <string>&amp;File</string>
+    </property>
+    <addaction name="action_Open"/>
+    <addaction name="separator"/>
+    <addaction name="action_Quit"/>
+   </widget>
+   <widget class="QMenu" name="menu_Options">
+    <property name="title">
+     <string>&amp;Settings</string>
+    </property>
+    <addaction name="action_Preferences"/>
+   </widget>
+   <widget class="QMenu" name="menu_Help">
+    <property name="title">
+     <string>&amp;Help</string>
+    </property>
+    <addaction name="action_About_RRLoader"/>
+   </widget>
+   <addaction name="menu_File"/>
+   <addaction name="menu_Options"/>
+   <addaction name="menu_Help"/>
+  </widget>
+  <widget class="QStatusBar" name="statusbar"/>
+  <action name="action_Preferences">
+   <property name="text">
+    <string>&amp;Preferences</string>
+   </property>
+  </action>
+  <action name="action_About_RRLoader">
+   <property name="text">
+    <string>&amp;About RRLoader</string>
+   </property>
+  </action>
+  <action name="action_Open">
+   <property name="text">
+    <string>&amp;Open...</string>
+   </property>
+  </action>
+  <action name="action_Quit">
+   <property name="text">
+    <string>&amp;Quit</string>
+   </property>
+  </action>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
