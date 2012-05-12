@@ -44,6 +44,9 @@ typedef struct socket {
 	} in;
 
 	struct timeval timeout;
+
+	uint32_t clients;
+	struct socket *client; 
 } socket_t;
 
 typedef union ip {
@@ -66,9 +69,17 @@ socket_set_timeout(socket_t __inout *s, struct timeval t);
 bool
 socket_connect(socket_t __inout *s, const char *address, port_t port);
 
+bool
+socket_listen(socket_t __inout *s, port_t port);
+
 void
 socket_disconnect(socket_t __inout *s);
 
+bool
+socket_accept(socket_t __in *s);
+
+bool
+socket_async_accept(socket_t __in *s);
 
 uint32_t
 socket_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
@@ -81,5 +92,8 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
+
+
+/* sock set functions to do */
 
 #endif /* LIBNET_SOCKET_H_ */

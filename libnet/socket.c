@@ -251,6 +251,51 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 	return false;
 }
 
+bool
+socket_listen(socket_t __inout *s, port_t port) {
+	ip_t ip;
+
+	if(s == 0 || port == 0) {
+		/*
+			libnet_error_push(LIBNET_E_INV_ARG);
+		*/
+
+		return false;
+	}
+
+	memset(&s->in, 0, sizeof(s->in)); // 28 bytes
+
+	if(s->ip_ver == LIBNET_IPV4) {
+		ip.v4 = INADDR_ANY;
+
+		s->in.v4.sin_family = get_address_family(s->ip_ver);
+		s->in.v4.sin_port = htons(port);
+		memcpy(&s->in.v4.sin_addr, &ip.v4, sizeof(struct in_addr));
+
+		if(s->proto == LIBNET_PROTOCOL_TCP) {
+			if(0 != bind(s->handle, (struct sockaddr *)&s->in.v4, sizeof(struct sockaddr))) {
+				/*
+					libnet_eror_push(LIBNET_E_CONNECT_FAILED);
+				*/
+
+				return false;
+			}
+
+			if(0 != listen(s->handle, 0)) {
+				/*
+					libnet_eror_push(LIBNET_E_CONNECT_FAILED);
+				*/
+
+				return false;
+			}
+		}
+
+		return true;
+	}
+
+	return false;
+}
+
 void
 socket_disconnect(socket_t __inout *s) {
 	if(s == 0) {
@@ -268,6 +313,56 @@ socket_disconnect(socket_t __inout *s) {
 #	endif
 
 	s->handle = 0;
+}
+
+bool
+socket_accept(socket_t __in *s) {
+	int ret = 0;
+
+	if(s == 0) {
+		/*
+			libnet_eror_push(LIBNET_E_INV_ARG);
+		*/
+
+		return 0;
+	}
+
+	if(s->proto == LIBNET_PROTOCOL_TCP) {
+		struct sockaddr info;
+		int info_len = sizeof(struct sockaddr);
+
+		ret = accept(s->handle, &info, &info_len);
+
+		if(ret <= 0) {
+			return false;
+		}
+
+		/* where to store? */
+	}
+
+	return ret;
+}
+
+bool
+socket_async_accept(socket_t __in *s) {
+	fd_set rs;
+
+	if(s == 0) {
+		/*
+			libnet_eror_push(LIBNET_E_INV_ARG);
+		*/
+
+		return false;
+	}
+
+	FD_ZERO(&rs);
+	FD_SET(s->handle, &rs);
+
+	if(select(s->handle + 1, &rs, NULL, NULL, &s->timeout) > 0) {
+		return socket_accept(s);
+	}
+
+	return 0;
 }
 
 uint32_t
@@ -303,6 +398,14 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 uint32_t
 socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len) {
 	fd_set rs;
+
+	if(s == 0 || s->handle == 0 || buf == 0) {
+		/*
+			libnet_eror_push(LIBNET_E_INV_ARG);
+		*/
+
+		return 0;
+	}
 
 	FD_ZERO(&rs);
 	FD_SET(s->handle, &rs);
@@ -340,6 +443,14 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	fd_set ws;
+
+	if(s == 0 || s->handle == 0 || buf == 0) {
+		/*
+			libnet_eror_push(LIBNET_E_INV_ARG);
+		*/
+
+		return;
+	}
 
 	FD_ZERO(&ws);
 	FD_SET(s->handle, &ws);
