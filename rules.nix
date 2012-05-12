@@ -13,4 +13,5 @@ ARFLAGS=rcs
 LDFLAGS=-L/usr/local/cross/lib
 CFLAGS=-fpack-struct 			\
 		-fleading-underscore 	\
-		-c
+		-c						\
+		-std=c99
