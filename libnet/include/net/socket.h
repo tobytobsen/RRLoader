@@ -42,6 +42,8 @@ typedef struct socket {
 		struct sockaddr_in6 v6;
 		struct sockaddr_in v4;
 	} in;
+
+	struct timeval timeout;
 } socket_t;
 
 typedef union ip {
@@ -57,6 +59,9 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v);
 void
 socket_release_socket(socket_t __in *s);
 
+void
+socket_set_timeout(socket_t __inout *s, struct timeval t);
+
 
 bool
 socket_connect(socket_t __inout *s, const char *address, port_t port);
@@ -68,7 +73,13 @@ socket_disconnect(socket_t __inout *s);
 uint32_t
 socket_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
 
+uint32_t
+socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
+
 void
 socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
+
+void
+socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 
 #endif /* LIBNET_SOCKET_H_ */

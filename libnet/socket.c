@@ -160,6 +160,8 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v) {
 		return false;
 	}
 
+	memset(s, 0, sizeof(socket_t));
+
 	s->handle = socket(get_address_family(v), get_type(p), 0);
 
 	if(s->handle <= 0) {
@@ -199,6 +201,11 @@ socket_release_socket(socket_t __in *s) {
 	}
 
 	/* do some checks here: socket_count < 0 */
+}
+
+void
+socket_set_timeout(socket_t __inout *s, struct timeval t) {
+	memcpy(&s->timeout, &t, sizeof(struct timeval));
 }
 
 bool
@@ -272,7 +279,7 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 			libnet_eror_push(LIBNET_E_INV_ARG);
 		*/
 
-		return;
+		return 0;
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
@@ -291,6 +298,20 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 	}
 
 	return ret;
+}
+
+uint32_t
+socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len) {
+	fd_set rs;
+
+	FD_ZERO(&rs);
+	FD_SET(s->handle, &rs);
+
+	if(select(s->handle + 1, &rs, NULL, NULL, &s->timeout) > 0) {
+		return socket_read(s, buf, len);
+	}
+
+	return 0;
 }
 
 void
@@ -316,4 +337,14 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	}
 }
 
+void
+socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
+	fd_set ws;
 
+	FD_ZERO(&ws);
+	FD_SET(s->handle, &ws);
+
+	if(select(s->handle + 1, NULL, &ws, NULL, &s->timeout) > 0) {
+		socket_write(s, buf, len);
+	}
+}
