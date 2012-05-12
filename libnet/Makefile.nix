@@ -14,8 +14,11 @@ shared:
 	@echo Shared Library is not supported yet
 
 test: static
-	$(CC) $(CFLAGS) tests/client.c -o tests/client -L"bin" -lnet
-	@exec ./tests/client
+	$(CC) $(CFLAGS) tests/client_sync.c -o tests/client_sync -L"bin" -lnet
+	@exec ./tests/client_sync > ./tests/client_sync.log
+
+	$(CC) $(CFLAGS) tests/client_async.c -o tests/client_async -L"bin" -lnet
+	@exec ./tests/client_async > ./tests/client_async.log
 
 clean:
 	$(RM) $(OBJ)
