@@ -18,6 +18,8 @@
 # include <arpa/inet.h>	
 #endif
 
+#define LIBNET_SET_SIZE 64
+
 typedef enum socket_proto {
 	LIBNET_PROTOCOL_TCP = 0,
 	LIBNET_PROTOCOL_UDP,
@@ -44,10 +46,12 @@ typedef struct socket {
 	} in;
 
 	struct timeval timeout;
-
-	uint32_t clients;
-	struct socket *client; 
 } socket_t;
+
+typedef struct socket_set {
+	uint32_t cl_cur, cl_max;
+	socket_t *client;
+} socket_set_t;
 
 typedef union ip {
 	uint32_t	v4;
@@ -65,7 +69,6 @@ socket_release_socket(socket_t __in *s);
 void
 socket_set_timeout(socket_t __inout *s, struct timeval t);
 
-
 bool
 socket_connect(socket_t __inout *s, const char *address, port_t port);
 
@@ -76,10 +79,10 @@ void
 socket_disconnect(socket_t __inout *s);
 
 bool
-socket_accept(socket_t __in *s);
+socket_accept(socket_t __in *listener, socket_set_t __inout *set);
 
 bool
-socket_async_accept(socket_t __in *s);
+socket_async_accept(socket_t __in *listener, socket_set_t __inout *set);
 
 uint32_t
 socket_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
@@ -93,7 +96,22 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 
+void
+socket_create_set(socket_set_t __inout *set);
 
-/* sock set functions to do */
+void
+socket_release_set(socket_set_t __in *set);
+
+void
+socket_set_add_socket(socket_set_t __inout *set, socket_t __in *s);
+
+void
+socket_set_rem_socket(socket_set_t __inout *set, socket_t __in *s);
+
+uint32_t
+socket_set_get_client_amount(socket_set_t __in *set);
+
+socket_t*
+socket_set_get_client(socket_set_t __in *set, uint32_t i);
 
 #endif /* LIBNET_SOCKET_H_ */
