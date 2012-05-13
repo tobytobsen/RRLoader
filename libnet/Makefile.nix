@@ -15,10 +15,17 @@ shared:
 
 test: static
 	$(CC) $(CFLAGS) tests/client_sync.c -o tests/client_sync -L"bin" -lnet
-	@exec ./tests/client_sync > ./tests/client_sync.log
-
+	
 	$(CC) $(CFLAGS) tests/client_async.c -o tests/client_async -L"bin" -lnet
-	@exec ./tests/client_async > ./tests/client_async.log
+
+	$(CC) $(CFLAGS) tests/simple_server_sync.c -o tests/simple_server_sync -L"bin" -lnet
+	$(CC) $(CFLAGS) tests/simple_client_sync.c -o tests/simple_client_sync -L"bin" -lnet
+
+
+	@exec ./tests/client_sync > ./tests/client_sync.log &
+	@exec ./tests/client_async > ./tests/client_async.log &
+	@exec ./tests/simple_server_sync > ./tests/simple_server_sync.log &
+	@exec ./tests/simple_client_sync > ./tests/simple_client_sync.log &
 
 clean:
 	$(RM) $(OBJ)
