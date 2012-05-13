@@ -11,27 +11,64 @@ print <<<END_HEADER
                                                                         
 
 END_HEADER;
-
+  
 if (version_compare(PHP_VERSION , '5.4.0', '>=') == 0)
   exit('You need at least PHP 5.4.0');
-
+  
 if (PHP_OS != 'WINNT')
   exit('WIP');
 
 if (!($bin = find_php())) 
   exit('Please add PHP-CLI to your PATH variable!');
-  
+ 
 $doc = realpath(__DIR__ . '/..');
 
-println('Starting server at localhost:8088');
-println('Document-Root is: ' . $doc);
-println();
-println('Do not close this Terminal/Console!');
-println(); 
+list ($host, $port) = get_args();
 
-`$bin -S localhost:8088 -t "$doc"`;
+if (!$host) 
+  $host = 'localhost';
+
+if (!$port || $port <= 1023)
+  $port = 8088;
+
+print <<<END_INFO
+Starting server at $host:$port
+Document-Root is: $doc
+
+Do not close this Terminal/Console!
+
+
+END_INFO;
+
+`$bin -S $host:$port -t "$doc"`;
 
 // ------------------------
+
+function get_args() {
+  if (!isset($_SERVER['argv'][1]))
+    return [null, null];
+    
+  $argv = $_SERVER['argv'][1];
+  
+  if ($argv === '?')
+    exit('usage: boot [ <host>:<port> | <host> | :<port> ]' . PHP_EOL);
+  
+  if (strpos($argv, ']:')) {
+    list ($host, $port) = explode(']:', $argv, 2);
+    return [$host . ']', (int) $port];
+  }
+  
+  if (($p = strpos($argv, ':')) === false)
+    return [$argv, null];
+    
+  if ($p === 0)
+    return [null, (int) substr($argv, 1)];
+    
+  $host = substr($argv, 0, $p);
+  $port = substr($argv, $p + 1);
+  
+  return [$host, (int) $port];
+}
 
 function find_php() {
   $res = `php -v`;
@@ -45,8 +82,4 @@ function find_php() {
         return $path;
   
   return null;
-}
-
-function println($msg = '') {
-  print $msg . PHP_EOL;
 }
