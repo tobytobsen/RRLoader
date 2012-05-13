@@ -49,8 +49,20 @@ function get_args() {
     return [null, null];
     
   $argv = $_SERVER['argv'][1];
-  if (!($p = strrpos($argv, ':')))
+  
+  if ($argv === '?')
+    exit('usage: boot [ <host>:<port> | <host> | :<port> ]' . PHP_EOL);
+  
+  if (strpos($argv, ']:')) {
+    list ($host, $port) = explode(']:', $argv, 2);
+    return [$host . ']', (int) $port];
+  }
+  
+  if (($p = strpos($argv, ':')) === false)
     return [$argv, null];
+    
+  if ($p === 0)
+    return [null, (int) substr($argv, 1)];
     
   $host = substr($argv, 0, $p);
   $port = substr($argv, $p + 1);
