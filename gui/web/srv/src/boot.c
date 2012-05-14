@@ -23,5 +23,5 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR args, int cs) {
   strncat(exe, cmd, CHR_SIZE);
   
   system(exe);  
-  return 1;
+  return 0;
 }
