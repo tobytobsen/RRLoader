@@ -1,6 +1,11 @@
 #!/usr/bin/php
 <?php
 
+/**
+ * RRLoader WebUI Standalone Server
+ * Copyright 2012 - droptable/murdoc <murdoc@raidrush.org>
+ */
+
 namespace rrl;
 
 print <<<END_HEADER
@@ -11,19 +16,14 @@ print <<<END_HEADER
                                                                         
 
 END_HEADER;
-  
-if (version_compare(PHP_VERSION , '5.4.0', '>=') == 0)
-  exit('You need at least PHP 5.4.0');
-  
-if (PHP_OS != 'WINNT')
-  exit('WIP');
 
-if (!($bin = find_php())) 
-  exit('Please add PHP-CLI to your PATH variable!');
- 
+$ini = __DIR__ . '/boot.ini';
+$ini = file_exists($ini) ? parse_ini_file($ini, true) : [];
+
+$bin = find_php($ini);
 $doc = realpath(__DIR__ . '/..');
 
-list ($host, $port) = get_args();
+list ($host, $port) = get_args($ini);
 
 if (!$host) 
   $host = 'localhost';
@@ -35,6 +35,9 @@ print <<<END_INFO
 Starting server at $host:$port
 Document-Root is: $doc
 
+You can now access the WebUI via:
+http://$host:$port/
+
 Do not close this Terminal/Console!
 
 
@@ -44,9 +47,12 @@ END_INFO;
 
 // ------------------------
 
-function get_args() {
+function get_args(array &$ini) {
+  $host_ini = !empty($ini['WEBUI']['host']) ? $ini['WEBUI']['host'] : null;
+  $port_ini = !empty($ini['WEBUI']['port']) ? $ini['WEBUI']['port'] : null;
+  
   if (!isset($_SERVER['argv'][1]))
-    return [null, null];
+    return [$host_ini, (int) $port_ini];
     
   $argv = $_SERVER['argv'][1];
   
@@ -55,31 +61,96 @@ function get_args() {
   
   if (strpos($argv, ']:')) {
     list ($host, $port) = explode(']:', $argv, 2);
-    return [$host . ']', (int) $port];
+    return [substr($host, 1), ((int) $port) ?: $port_ini];
   }
   
   if (($p = strpos($argv, ':')) === false)
-    return [$argv, null];
+    return [$argv, (int) $port_ini];
     
-  if ($p === 0)
-    return [null, (int) substr($argv, 1)];
+  if ($p === 0) // :<port> notation
+    return [$host_ini, ((int) substr($argv, 1)) ?: $port_ini];
     
   $host = substr($argv, 0, $p);
   $port = substr($argv, $p + 1);
   
-  return [$host, (int) $port];
+  return [$host, ((int) $port) ?: $port_ini];
 }
 
-function find_php() {
-  $res = `php -v`;
+function check_cli($cli) {
+  $err = (PHP_OS === 'WINNT') ? '2>nul' : '2>/dev/null';
+  $res = `$cli -v $err`;
   
-  if (stristr($res, 'PHP 5')) 
-    return 'php';
+  if (!preg_match('/PHP (\d+(?:\.\d+)*)/', $res, $match))
+    return false;
   
-  foreach (['php', 'xampp/php', 'wamp/php'] as $p)
-    foreach (['C', 'D', 'E', 'F'] as $h)
-      if (file_exists($path = $h . ':/' . $p . '/php.exe'))
-        return $path;
-  
-  return null;
+  return version_compare($match[1], '5.4') > -1;
 }
+
+function find_php(array &$ini) {
+  // check ini first
+  if (!empty($ini['PHP_CLI']['path'])) {
+    $cli = $ini['PHP_CLI']['path'];
+    if (check_cli($cli)) return $cli;
+  }
+  
+  foreach (['php', $_SERVER['PHP_CLI']] as $path)
+    if (check_cli($path)) goto cli_found;
+  
+  print 'Missing PHP-CLI (>= 5.4), please give us a path to your PHP install-folder:'
+    . PHP_EOL . '> ';
+  
+  $dirs = DIRECTORY_SEPARATOR;
+  $path = str_replace(array('\\', '/'), $dirs, trim(fgets(STDIN)));
+  
+  print PHP_EOL;
+  
+  if (substr($path, -8) !== ($bin = "{$dirs}php.exe"))
+    $path .= $bin;   
+
+  // remove unecessary slashes
+  $path = preg_replace('/(?:' . preg_quote($dirs, '/') . '){2,}/', $dirs, $path);
+  
+  if (file_exists($path) && check_cli($path)) 
+    goto cli_found;
+   
+  exit('PHP-CLI was not found on your System, please add it to your PATH Variable!');
+  
+  cli_found:
+  alter_cli_path($ini, $path);
+  
+  return $path;
+}
+
+function alter_cli_path(array &$ini, $value) {
+  $s = 'PHP_CLI';
+  $n = 'path';
+  
+  if (!isset($ini[$s]) || !is_array($ini[$s]))
+    $ini[$s] = [];
+    
+  $ini[$s][$n] = $value;
+  
+  // replace value in file and save it
+  $path = __DIR__ . DIRECTORY_SEPARATOR . 'boot.ini';
+  $sect = false;
+  $done = false;
+  $buff = '';
+  
+  ini_set('auto_detect_line_endings', true);
+  
+  foreach (file($path, FILE_IGNORE_NEW_LINES) as $line) {
+    if ($sect === true && preg_match('/^path\s*=/', $line)) {
+      $buff .= 'path = ' . $value . PHP_EOL;
+      $done = true;
+      continue;
+    }
+    
+    $buff .= $line . PHP_EOL;
+    
+    if (!$done && !$sect)
+      $sect = trim($line) === '[PHP_CLI]';
+  } 
+  
+  file_put_contents($path, $buff);
+}
+
