@@ -16,6 +16,8 @@
 # include <netdb.h>
 # include <unistd.h>
 # include <arpa/inet.h>	
+
+# include <errno.h>
 #endif
 
 #define LIBNET_SET_SIZE 64

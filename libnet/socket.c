@@ -37,17 +37,17 @@ get_type(proto_t p) {
 }
 
 bool
-resolve_hostname(ip_t __inout *ip, const char __in *hostname, port_t port, proto_t p) {
+find_suitable_info(socket_t __inout *s, const char __in *hostname, port_t port, bool listener) {
 	char pb[6];
 	int tmp_sock, ret;
 
 	struct addrinfo *dest, *it, hints = {
-		.ai_family = AF_UNSPEC,
-		.ai_socktype = get_type(p),
+		.ai_family = get_address_family(s->ip_ver),
+		.ai_socktype = get_type(s->proto),
 		.ai_flags = AI_PASSIVE
 	};
 
-	if(ip == 0 || p >= LIBNET_PROTOCOL_UNSUPPORTED) {
+	if(s == 0) {
 		/*
 			libnet_error_push(LIBNET_E_INV_ARG);
 		*/
@@ -63,22 +63,27 @@ resolve_hostname(ip_t __inout *ip, const char __in *hostname, port_t port, proto
 
 			libnet_error_push(LIBNET_E_XYZ)
 		*/
+
 		return false;
 	}
 
 	for(it = dest; it != NULL; it = it->ai_next) {
-		tmp_sock = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
 
-		/*if(it->ai_family == AF_INET) {
-			struct sockaddr_in *in = (struct sockaddr_in *)it->ai_addr;
-			printf("%s\r\n", inet_ntoa(in->sin_addr));
-		}*/
+		/*char buf[32];
+		inet_ntop(it->ai_family, &((struct sockaddr_in *)it->ai_addr)->sin_addr, buf, 31);
+		printf("%s : %s -> %s\r\n", hostname, pb, buf);*/
+
+		tmp_sock = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
 
 		if(tmp_sock <= 0) {
 			continue;
 		}
 
-		ret = connect(tmp_sock, it->ai_addr, it->ai_addrlen);
+		if(listener == true) {
+			ret = bind(tmp_sock, it->ai_addr, it->ai_addrlen);
+		} else {
+			ret = connect(tmp_sock, it->ai_addr, it->ai_addrlen);
+		}
 
 #		ifdef WIN32
 		closesocket(tmp_sock);
@@ -96,14 +101,12 @@ resolve_hostname(ip_t __inout *ip, const char __in *hostname, port_t port, proto
 		switch(it->ai_family) {
 			case AF_INET: {
 				ret = true;
-				struct sockaddr_in *in = (struct sockaddr_in *)it->ai_addr;
-				memcpy(&ip->v4, &in->sin_addr, sizeof(struct in_addr));
+				memcpy(&s->in.v4, it->ai_addr, it->ai_addrlen);
 			} break;
 
 			case AF_INET6: {
 				ret = true;
-				struct sockaddr_in6 *in = (struct sockaddr_in6 *)it->ai_addr;
-				memcpy(&ip->_f, &in->sin6_addr, sizeof(struct in6_addr));
+				memcpy(&s->in.v6, it->ai_addr, it->ai_addrlen);
 			} break;
 		}
 
@@ -133,7 +136,7 @@ socket_winsock_cleanup(void) {
 	WSADATA wsaData = {0};
 	if(0 != WSAStartup(MAKEWORD(2, 0), &wsaData)) {
 		/*
-			libnet_error_push(LIBNET_E_W32_XYZ); /* LIB _ ERROR _ [<PLATFORM>] _ <ERR>
+			libnet_error_push(LIBNET_E_W32_XYZ);  --> LIB _ ERROR _ [<PLATFORM>] _ <ERR>
 		*/
 	}
 
@@ -216,6 +219,7 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 	ip_t ip;
 	long r;
 	struct sockaddr *info;
+	uint32_t infolen;
 	char *t = NULL;
 
 	if(s == 0 || port == 0 || address == 0) {
@@ -232,53 +236,42 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 		ip.v4 = inet_addr(address);
 
 		if(ip.v4 == INADDR_NONE) {
-			if(false == resolve_hostname(&ip, address, port, s->proto)) {
+			if(false == find_suitable_info(s, address, port, false)) {
 				return false;
 			}
+		} else {
+			s->in.v4.sin_family = get_address_family(s->ip_ver);
+			s->in.v4.sin_port = htons(port);
+			memcpy(&s->in.v4.sin_addr, &ip.v4, sizeof(struct in_addr));
 		}
 
-		s->in.v4.sin_family = get_address_family(s->ip_ver);
-		s->in.v4.sin_port = htons(port);
-		memcpy(&s->in.v4.sin_addr, &ip.v4, sizeof(struct in_addr));
-
 		info = (struct sockaddr *)(&s->in.v4);
+		infolen = sizeof(s->in.v4);
 	} else if(s->ip_ver == LIBNET_IPV6) {
 		info = (struct sockaddr *)(&s->in.v6);
+		infolen = sizeof(s->in.v6);
 
 #		ifdef WIN32
 		r = RtlIpv6StringToAddress(address, t, &s->in.v6);
 
 		if(r != NO_ERROR) {
-			if(false == resolve_hostname(&ip, address, port, s->proto)) {
-				return false;
-			}
-
-			memcpy(&s->in.v6.sin6_addr, &ip._f, sizeof(struct in_addr6));
-		}
-
 #		else if defined NIX
-
-		r = inet_pton(get_type(s->proto), address, info);
+		r = inet_pton(get_type(s->proto), address, &s->in.v6);
 
 		if(r != 1) {
-			if(false == resolve_hostname(&ip, address, port, s->proto)) {
-				return false;
-			}
-
-			memcpy(&s->in.v6.sin6_addr, &ip._f, sizeof(struct in6_addr));
-		}
-
 #		endif
-
-		s->in.v6.sin6_family = get_address_family(s->ip_ver);
-		s->in.v6.sin6_port = htons(port);
+			if(false == find_suitable_info(s, address, port, false)) {
+				return false;
+			}	
+		}
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
-		if(0 != connect(s->handle, info, sizeof(struct sockaddr))) {
+		if(0 != connect(s->handle, info, infolen)) {
 			/*
 				libnet_eror_push(LIBNET_E_CONNECT_FAILED);
 			*/
+			printf("err: %s\r\n",strerror(errno));
 			return false;
 		}
 
@@ -291,6 +284,9 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 bool
 socket_listen(socket_t __inout *s, port_t port) {
 	ip_t ip;
+	uint32_t w;
+	struct sockaddr *info;
+	uint32_t infolen;
 
 	if(s == 0 || port == 0) {
 		/*
@@ -303,28 +299,49 @@ socket_listen(socket_t __inout *s, port_t port) {
 	memset(&s->in, 0, sizeof(s->in)); // 28 bytes
 
 	if(s->ip_ver == LIBNET_IPV4) {
-		ip.v4 = INADDR_ANY;
+		w = INADDR_ANY;
 
 		s->in.v4.sin_family = get_address_family(s->ip_ver);
 		s->in.v4.sin_port = htons(port);
-		memcpy(&s->in.v4.sin_addr, &ip.v4, sizeof(struct in_addr));
+		memcpy(&s->in.v4.sin_addr, &w, sizeof(struct in_addr));
 
-		if(s->proto == LIBNET_PROTOCOL_TCP) {
-			if(0 != bind(s->handle, (struct sockaddr *)&s->in.v4, sizeof(struct sockaddr))) {
-				/*
-					libnet_eror_push(LIBNET_E_CONNECT_FAILED);
-				*/
+		info = (struct sockaddr *)(&s->in.v4);
+		infolen = sizeof(s->in.v4);
+	} else if(s->ip_ver == LIBNET_IPV6) {
+		if(false == find_suitable_info(s, 0, port, true)) {
+			return false;
+		}
 
-				return false;
-			}
+		info = (struct sockaddr *)(&s->in.v6);	
+		infolen = sizeof(s->in.v6);
 
-			if(0 != listen(s->handle, 0)) {
-				/*
-					libnet_eror_push(LIBNET_E_CONNECT_FAILED);
-				*/
+		int on = 1;
+		w = setsockopt(s->handle, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 
-				return false;
-			}
+		if(w != 0) {
+			/*
+				libnet_eror_push(LIBNET_E_IPV6_ONLY_FAILED);
+			*/
+			printf("setsockopt: %s\r\n", strerror(errno));
+			return false;
+		}
+	}
+
+	if(s->proto == LIBNET_PROTOCOL_TCP) {
+		if(0 != bind(s->handle, info, infolen)) {
+			/*
+				libnet_eror_push(LIBNET_E_BIND_FAILED);
+			*/
+			printf("bind: %s\r\n", strerror(errno));
+			return false;
+		}
+
+		if(0 != listen(s->handle, 0)) {
+			/*
+				libnet_eror_push(LIBNET_E_LISTEN_FAILED);
+			*/
+			printf("listen\r\n");
+			return false;
 		}
 
 		return true;
@@ -368,7 +385,7 @@ socket_accept(socket_t __in *listener, socket_set_t __inout *set) {
 		socket_t cl = {0};
 
 		struct sockaddr info;
-		int info_len = sizeof(struct sockaddr);
+		uint32_t info_len = sizeof(struct sockaddr);
 
 		ret = accept(listener->handle, &info, &info_len);
 
@@ -419,6 +436,7 @@ uint32_t
 socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 	int ret = 0;
 	struct sockaddr* info;
+	uint32_t infolen;
 
 	if(s == 0 || s->handle == 0 || buf == 0) {
 		/*
@@ -430,15 +448,16 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 
 	if(s->ip_ver == LIBNET_IPV4) {
 		info = (struct sockaddr *)(&s->in.v4);
+		infolen = sizeof(s->in.v4);
 	} else if (s->ip_ver == LIBNET_IPV6) {
 		info = (struct sockaddr *)(&s->in.v6);
+		infolen = sizeof(s->in.v6);
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
 		ret = recv(s->handle, buf, len-1, 0);
 	} else if(s->proto == LIBNET_PROTOCOL_UDP) {
-		int addrlen = sizeof(*info);
-		ret = recvfrom(s->handle, buf, len, 0, info, &addrlen);
+		ret = recvfrom(s->handle, buf, len, 0, info, &infolen);
 	}
 
 	if(ret > 0) {
@@ -482,6 +501,7 @@ void
 socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	int ret = 0;
 	struct sockaddr *info;
+	uint32_t infolen;
 
 	if(s == 0 || s->handle == 0 || buf == 0) {
 		/*
@@ -493,14 +513,16 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 
 	if(s->ip_ver == LIBNET_IPV4) {
 		info = (struct sockaddr *)(&s->in.v4);
+		infolen = sizeof(s->in.v4);
 	} else if (s->ip_ver == LIBNET_IPV6) {
 		info = (struct sockaddr *)(&s->in.v6);
+		infolen = sizeof(s->in.v6);
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
 		ret = send(s->handle, buf, len, 0);
 	} else if(s->proto == LIBNET_PROTOCOL_UDP) {
-		ret = sendto(s->handle, buf, len, 0, info, sizeof(*info));
+		ret = sendto(s->handle, buf, len, 0, info, infolen);
 	}
 
 	if(ret == 0) {
