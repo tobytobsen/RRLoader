@@ -271,7 +271,7 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 			/*
 				libnet_eror_push(LIBNET_E_CONNECT_FAILED);
 			*/
-			printf("err: %s\r\n",strerror(errno));
+			//printf("err: %s\r\n",strerror(errno));
 			return false;
 		}
 
@@ -322,7 +322,7 @@ socket_listen(socket_t __inout *s, port_t port) {
 			/*
 				libnet_eror_push(LIBNET_E_IPV6_ONLY_FAILED);
 			*/
-			printf("setsockopt: %s\r\n", strerror(errno));
+			//printf("setsockopt: %s\r\n", strerror(errno));
 			return false;
 		}
 	}
@@ -332,7 +332,7 @@ socket_listen(socket_t __inout *s, port_t port) {
 			/*
 				libnet_eror_push(LIBNET_E_BIND_FAILED);
 			*/
-			printf("bind: %s\r\n", strerror(errno));
+			//printf("bind: %s\r\n", strerror(errno));
 			return false;
 		}
 
@@ -340,7 +340,7 @@ socket_listen(socket_t __inout *s, port_t port) {
 			/*
 				libnet_eror_push(LIBNET_E_LISTEN_FAILED);
 			*/
-			printf("listen\r\n");
+			//printf("listen\r\n");
 			return false;
 		}
 
