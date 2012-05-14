@@ -96,9 +96,8 @@ class Socket
       $this->throw_socket_error();
     
     $len = strlen($buf);
-    $nul = chr(0);
     
-    if (($bts === 0 || $len < $bts) && substr($buf, -1) !== $nul) {
+    if (($bts === 0 || $len < $bts)) {
       if ($bts === 0) {
         for(;;) {
           $cnk = socket_read($this->sock, 4096, PHP_BINARY_READ);
@@ -106,10 +105,10 @@ class Socket
           if (false === $cnk)
             $this->throw_socket_error();
           
+          if ($cnk === '')
+            return $buf;
+            
           $buf .= $cnk;
-          
-          if (substr($cnk, -1) === $nul)
-            return substr($buf, 0, -1); // remove null-byte
         }
       }
       
@@ -120,15 +119,15 @@ class Socket
         if (false === $cnk)
           $this->throw_socket_error();
         
+        if ($cnk === '')
+          return $buf;
+        
         $len += strlen($cnk);
         $buf .= $cnk;
-        
-        if (substr($cnk, -1) === $nul)
-          return substr($buf, 0, -1); // remove null-byte
       }
     }
     
-    return strtr($buf, [ $nul => '' ]);
+    return $buf;
   }
   
   // @throws Exception
