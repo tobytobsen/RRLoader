@@ -262,7 +262,6 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 
 		if(r != 1) {
 			if(false == resolve_hostname(&ip, address, port, s->proto)) {
-				printf("inet_pton and resolve_hostname failed\r\n");
 				return false;
 			}
 
@@ -280,9 +279,6 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 			/*
 				libnet_eror_push(LIBNET_E_CONNECT_FAILED);
 			*/
-			char buf[32] = {0};
-			inet_ntop(get_type(s->proto), info, buf, 31);
-			printf("connect failed: %s\r\n", buf);
 			return false;
 		}
 
