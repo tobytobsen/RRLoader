@@ -101,7 +101,9 @@ resolve_hostname(ip_t __inout *ip, const char __in *hostname, port_t port, proto
 			} break;
 
 			case AF_INET6: {
-				
+				ret = true;
+				struct sockaddr_in6 *in = (struct sockaddr_in6 *)it->ai_addr;
+				memcpy(&ip->_f, &in->sin6_addr, sizeof(struct in6_addr));
 			} break;
 		}
 
@@ -158,7 +160,7 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v) {
 		/*
 			libnet_error_push(LIBNET_E_IPV6_NOT_SUPPORTED);
 		*/
-		return false;
+		//return false;
 	}
 
 	memset(s, 0, sizeof(socket_t));
@@ -212,6 +214,9 @@ socket_set_timeout(socket_t __inout *s, struct timeval t) {
 bool
 socket_connect(socket_t __inout *s, const char *address, port_t port) {
 	ip_t ip;
+	long r;
+	struct sockaddr *info;
+	char *t = NULL;
 
 	if(s == 0 || port == 0 || address == 0) {
 		/*
@@ -236,14 +241,49 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 		s->in.v4.sin_port = htons(port);
 		memcpy(&s->in.v4.sin_addr, &ip.v4, sizeof(struct in_addr));
 
-		if(s->proto == LIBNET_PROTOCOL_TCP) {
-			if(0 != connect(s->handle, (struct sockaddr *)&s->in.v4, sizeof(struct sockaddr))) {
-				/*
-					libnet_eror_push(LIBNET_E_CONNECT_FAILED);
-				*/
+		info = (struct sockaddr *)(&s->in.v4);
+	} else if(s->ip_ver == LIBNET_IPV6) {
+		info = (struct sockaddr *)(&s->in.v6);
 
+#		ifdef WIN32
+		r = RtlIpv6StringToAddress(address, t, &s->in.v6);
+
+		if(r != NO_ERROR) {
+			if(false == resolve_hostname(&ip, address, port, s->proto)) {
 				return false;
 			}
+
+			memcpy(&s->in.v6.sin6_addr, &ip._f, sizeof(struct in_addr6));
+		}
+
+#		else if defined NIX
+
+		r = inet_pton(get_type(s->proto), address, info);
+
+		if(r != 1) {
+			if(false == resolve_hostname(&ip, address, port, s->proto)) {
+				printf("inet_pton and resolve_hostname failed\r\n");
+				return false;
+			}
+
+			memcpy(&s->in.v6.sin6_addr, &ip._f, sizeof(struct in6_addr));
+		}
+
+#		endif
+
+		s->in.v6.sin6_family = get_address_family(s->ip_ver);
+		s->in.v6.sin6_port = htons(port);
+	}
+
+	if(s->proto == LIBNET_PROTOCOL_TCP) {
+		if(0 != connect(s->handle, info, sizeof(struct sockaddr))) {
+			/*
+				libnet_eror_push(LIBNET_E_CONNECT_FAILED);
+			*/
+			char buf[32] = {0};
+			inet_ntop(get_type(s->proto), info, buf, 31);
+			printf("connect failed: %s\r\n", buf);
+			return false;
 		}
 
 		return true;
@@ -341,7 +381,13 @@ socket_accept(socket_t __in *listener, socket_set_t __inout *set) {
 		}
 
 		memcpy(&cl, listener, sizeof(socket_t));
-		memcpy(&cl.in.v4, &info, sizeof(struct sockaddr_in));
+
+		if(listener->ip_ver == LIBNET_IPV4) {
+			memcpy(&cl.in.v4, &info, sizeof(struct sockaddr_in));
+		} else if (listener->ip_ver == LIBNET_IPV6) {
+			memcpy(&cl.in.v6, &info, sizeof(struct sockaddr_in6));
+		}
+		
 		cl.handle = ret;
 
 		/* where to store? */
@@ -376,6 +422,7 @@ socket_async_accept(socket_t __in *listener, socket_set_t __inout *set) {
 uint32_t
 socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 	int ret = 0;
+	struct sockaddr* info;
 
 	if(s == 0 || s->handle == 0 || buf == 0) {
 		/*
@@ -385,20 +432,30 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 		return 0;
 	}
 
+	if(s->ip_ver == LIBNET_IPV4) {
+		info = (struct sockaddr *)(&s->in.v4);
+	} else if (s->ip_ver == LIBNET_IPV6) {
+		info = (struct sockaddr *)(&s->in.v6);
+	}
+
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
 		ret = recv(s->handle, buf, len-1, 0);
-
-		if(ret > 0) {
-			buf[ret] = 0;
-		}
-
-		if(ret < 0) {
-			/*
-				libnet_eror_push(LIBNET_E_RECV_FAILED);
-			*/
-			return 0;
-		}
+	} else if(s->proto == LIBNET_PROTOCOL_UDP) {
+		int addrlen = sizeof(*info);
+		ret = recvfrom(s->handle, buf, len, 0, info, &addrlen);
 	}
+
+	if(ret > 0) {
+		buf[ret] = 0;
+	}
+
+	if(ret < 0) {
+		/*
+			libnet_eror_push(LIBNET_E_RECV_FAILED);
+		*/
+		return 0;
+	}
+
 
 	return ret;
 }
@@ -428,6 +485,7 @@ socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len) {
 void
 socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	int ret = 0;
+	struct sockaddr *info;
 
 	if(s == 0 || s->handle == 0 || buf == 0) {
 		/*
@@ -437,14 +495,22 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 		return;
 	}
 
+	if(s->ip_ver == LIBNET_IPV4) {
+		info = (struct sockaddr *)(&s->in.v4);
+	} else if (s->ip_ver == LIBNET_IPV6) {
+		info = (struct sockaddr *)(&s->in.v6);
+	}
+
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
 		ret = send(s->handle, buf, len, 0);
+	} else if(s->proto == LIBNET_PROTOCOL_UDP) {
+		ret = sendto(s->handle, buf, len, 0, info, sizeof(*info));
+	}
 
-		if(ret == 0) {
-			/*
-				libnet_eror_push(LIBNET_E_SEND_FAILED);
-			*/
-		}
+	if(ret == 0) {
+		/*
+			libnet_eror_push(LIBNET_E_SEND_FAILED);
+		*/
 	}
 }
 
