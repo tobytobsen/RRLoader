@@ -13,7 +13,7 @@ use \InvalidArgumentException;
 class Socket 
 {
   const DEFAULT_HOST = 'localhost',
-        DEFAULT_PORT = 1234 // WIP
+        DEFAULT_PORT = 50100; // WIP
   
   // standard C errorcodes are at the bottom
   const ERR_MISSING = 10000;
@@ -52,9 +52,9 @@ class Socket
   {
     $r = [];
     $w = [ $this->sock ];
-    $e = [],
+    $e = [];
     
-    socket_select($r, $w, $e, 0);
+    socket_select($r, $w, $e, 10);
       
     $len = strlen($msg);
     $res = socket_write($this->sock, $msg, $len);
@@ -88,7 +88,7 @@ class Socket
     $w = [];
     $e = [];
     
-    socket_select($r, $w, $e, 0);
+    socket_select($r, $w, $e, 10);
     
     $buf = socket_read($this->sock, $bts ?: 4096, PHP_BINARY_READ);
     
@@ -97,34 +97,40 @@ class Socket
     
     $len = strlen($buf);
     
-    if (($bts === 0 || $len < $bts)) {
-      if ($bts === 0) {
-        for(;;) {
-          $cnk = socket_read($this->sock, 4096, PHP_BINARY_READ);
-          
-          if (false === $cnk)
-            $this->throw_socket_error();
-          
-          if ($cnk === '')
-            return $buf;
-            
-          $buf .= $cnk;
-        }
-      }
+    if ($bts !== 0 && $len === $bts)
+      return $buf;
       
-      while ($bts) {
-        $bts -= $len;
-        $cnk = socket_read($this->sock, $bts, PHP_BINARY_READ);
+    if ($bts === 0) {
+      while (socket_select($r, $w, $e, 0) > 0) {
+        $cnk = socket_read($this->sock, 4096, PHP_BINARY_READ);
         
         if (false === $cnk)
           $this->throw_socket_error();
         
         if ($cnk === '')
           return $buf;
-        
-        $len += strlen($cnk);
+          
         $buf .= $cnk;
       }
+      
+      return $buf;
+    }
+      
+    while ($bts) {
+      if (socket_select($r, $w, $e, 0) != 1)
+        break;
+      
+      $bts -= $len;
+      $cnk = socket_read($this->sock, $bts, PHP_BINARY_READ);
+      
+      if (false === $cnk)
+        $this->throw_socket_error();
+      
+      if ($cnk === '')
+        return $buf;
+      
+      $len += strlen($cnk);
+      $buf .= $cnk;
     }
     
     return $buf;
@@ -135,9 +141,6 @@ class Socket
   {
     socket_clear_error($this->sock);
     socket_close($this->sock);
-    
-    if ($errno = socket_last_error($this->sock))
-      $this->throw_socket_error($errno);
   }
   
   // ---------------------------
@@ -149,7 +152,7 @@ class Socket
     if ($errno === -1)
       $errno = socket_last_error($this->sock);
       
-    throw new Exception(socket_stderror($errno), $errno);
+    throw new Exception(socket_strerror($errno), $errno);
   }
   
   // @throws \Exception
@@ -199,5 +202,5 @@ class Socket
         ERR_ALREADY         = 114,   /* Operation already in progress */
         ERR_INPROGRESS      = 115,   /* Operation now in progress */
         ERR_REMOTEIO        = 121,   /* Remote I/O error */
-        ERR_CANCELED        = 125,   /* Operation Canceled */ 
+        ERR_CANCELED        = 125;   /* Operation Canceled */ 
 }
