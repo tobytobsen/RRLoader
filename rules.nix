@@ -11,7 +11,5 @@ MAKE=/usr/bin/make
 
 ARFLAGS=rcs
 LDFLAGS=-L/usr/local/cross/lib
-CFLAGS=-fpack-struct 			\
-		-fleading-underscore 	\
-		-c						\
+CFLAGS=-fleading-underscore 	\
 		-std=c99

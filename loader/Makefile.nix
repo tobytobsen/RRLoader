@@ -10,8 +10,6 @@ CFLAGS+= -I./include/ -I../include/
 all:
 	
 
-test:
-
 clean:
 	$(RM) $(OBJ)
 
