@@ -51,18 +51,18 @@ for ($cpl = [];;) {
     $cpl[] = $clt;
   }
   
-  for ($i = 0, $l = count($cpl); $i < $l; ++$i) {      
-    $r = [ $cpl[$i] ];
+  foreach ($cpl as $i => $clt) {      
+    $r = [ $clt ];
     $w = [];
     $e = [];
     
     if (socket_select($r, $w, $e, 0) != 1)
       continue;
     
-    $buf = socket_read($cpl[$i], 4096, PHP_BINARY_READ);
+    $buf = socket_read($clt, 4096, PHP_BINARY_READ);
     
     if (false === $buf || $buf === '') {
-      @socket_close($cpl[$i]);    
+      @socket_close($clt);    
       array_splice($cpl, $i, 1); 
       
       print '[ connection lost ]' . PHP_EOL;
@@ -82,19 +82,29 @@ for ($cpl = [];;) {
     
     switch ($buf) {
       case 'hello':
-        socket_write($cpl[$i], 'hello back!', 11);
+        socket_write($clt, 'hello back!', 11);
         break;
-        
+      
+      case 'bytes-short':
+        $bin = pack('s', 1337);
+        socket_write($clt, $bin, strlen($bin));
+        break;
+      
+      case 'bytes-string':
+        $bin = pack('sa*', 4, 'test');
+        socket_write($clt, $bin, strlen($bin));
+        break;
+      
       case 'quit':
-        socket_write($cpl[$i], 'good bye', 8);
-        socket_close($cpl[$i]);
+        socket_write($clt, 'good bye', 8);
+        socket_close($clt);
         array_splice($cpl, $i, 1);
         
         print '[ connection closed ]' . PHP_EOL;
         break 2;
         
       default:
-        socket_write($cpl[$i], 'noop', 4);
+        socket_write($clt, 'noop', 4);
     }
   }
   

@@ -89,16 +89,30 @@ class Socket
   }
   
   /**
+   * write raw data 
+   *
+   * @param   string    $msg
+   * @param   string    $fmt
+   * @return  self
+   * @throws  \Exception
+   */
+  public function write_bytes($msg, $fmt = '')
+  {    
+    $this->write(pack($fmt, $msg));
+    return $this;
+  }
+  
+  /**
    * reads data
    *
    * note:
    * if $bts is 0 this method reads all available data in the buffer
    * 
    * note:
-   * $bts can be greater than the ammount of available data.
+   * $bts can be greater than the amount of available data.
    * this method will stop reading if noting more is available.
    *
-   * if your applcation requires a specific ammount of data use `read_bytes`
+   * if your applcation requires a specific amount of data use `read_bytes`
    *
    * @param   int       $bts
    * @return  string
@@ -161,36 +175,78 @@ class Socket
   }
   
   /** 
-   * reads a specific ammount of bytes
+   * reads a specific amount of bytes
    * 
    * note: 
-   * this method blocks until the requested ammount of bytes 
+   * this method blocks until the requested amount of bytes 
    * could be read from the socket!
    *
    * if you just want the current buffer use `read` instead
    *
-   * @param   int   $bts
-   * @return  string
+   * note:
+   * this method works in two ways:
+   *
+   * 1. if you use a format, it will unpack the data for you.
+   * 2. if you don't use a format, it will return the data as string.
+   * 
+   * you can also use a format as byte-size if the size of the 
+   * requested type is known, like 's' or 'l'.
+   *
+   * @param   int       $bts
+   * @param   string    $fmt
+   * @return  mixed
    * @throws  \Exception
    */
-  public function read_bytes($bts)
+  public function read_bytes($bts, $fmt = '')
   {
+    if (is_string($bts)) {
+      // @see <http://www.php.net/manual/de/function.pack.php>      
+      switch ($fmt = $bts) {
+        case 'c':
+        case 'C':
+        case 'x':
+          $bts = 1;
+          break;
+          
+        case 's':
+        case 'S':
+        case 'n':
+        case 'v':
+          $bts = 2;
+          break;
+          
+        case 'l':
+        case 'L':
+        case 'N':
+        case 'V':
+          $bts = 4;
+          break;
+          
+        default:            
+          throw new InvalidArgumentException(
+            'the requested format "' . $fmt . '" does not have '
+            . 'a fixed width. please provide the requested amount '
+            . 'of bytes if you want to use a format like that! '
+            . 'you can also omit the format-parameter and unpack '
+            . 'the raw-data by yourself.'
+          );
+      }
+    }
+  
     $r = [ $this->sock ];
     $w = [];
     $e = [];
+        
+    socket_select($r, $w, $e, 10);
     
     $buf = '';
+    $res = socket_recv($this->sock, $buf, $bts, MSG_WAITALL);
     
-    while ($bts) {
-      socket_select($r, $w, $e, 10);
-      
-      $cnk = socket_read($this->sock, $bts, PHP_BINARY_READ);
-      $bts -= strlen($cnk);
-      $buf .= $cnk;
-    }
+    if ($res === false)
+      $this->throw_socket_error();
     
-    return $buf;
-  }  
+    return !empty($fmt) ? unpack($fmt, $buf) : $buf;
+  }
   
   /**
    * closes the socket
