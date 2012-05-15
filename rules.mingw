@@ -1,0 +1,18 @@
+# mingw/msys/nasm binaries sollten über die Path variable erreichbar sein.
+# bei LDFLAGS ggf. den pfad zu den libs anpassen.
+
+CC=gcc
+LD=ld
+LS=ls
+MV=mv
+CP=cp
+RM=rm
+AR=ar
+NASM=nasm
+MAKE=make
+
+ARFLAGS=rcs
+LDFLAGS=-LC:\MinGW\lib
+CFLAGS=-fleading-underscore 	\
+		-c						\
+		-std=c99
