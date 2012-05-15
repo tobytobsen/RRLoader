@@ -12,19 +12,26 @@ use \InvalidArgumentException;
 
 class Socket 
 {
-  const DEFAULT_HOST = 'localhost',
-        DEFAULT_PORT = 50100; // WIP
+  const DEFAULT_HOST = 'localhost', // WIP
+        DEFAULT_PORT = 50100;       // WIP
   
   // standard C errorcodes are at the bottom of this file
-  const ERR_MISSING = 10000;
+  
+  const ERR_MISSING = 10000, // missing sockets extension
+        ERR_CREATE  = 10001; // socket could not be created
         
   protected $sock, $conf;
   
-  // @throws \InvalidArgumentException
+  /**
+   * constructor
+   *
+   * @param   array     $conf   [optional]
+   * @throws \InvalidArgumentException
+   */
   public function __construct(array $conf = [])
   {
     if (!extension_loaded('sockets'))
-      throw new Exception('missing socket support', self::ERR_MISSING);
+      throw new Exception('missing sockets extension', self::ERR_MISSING);
       
     $conf += [ 'host' => self::DEFAULT_HOST, 'port' => self::DEFAULT_PORT ];
     
@@ -43,7 +50,13 @@ class Socket
   // ---------------------------
   // @public
   
-  // @throws \Exception
+  /**
+   * writes data
+   *
+   * @param   string    $msg
+   * @return  self
+   * @throws \Exception
+   */
   public function write($msg)
   {
     $r = [];
@@ -75,7 +88,36 @@ class Socket
     return $this;
   }
   
-  // @throws \Exception
+  /**
+   * write raw data 
+   *
+   * @param   string    $msg
+   * @param   string    $fmt
+   * @return  self
+   * @throws  \Exception
+   */
+  public function write_bytes($msg, $fmt = '')
+  {    
+    $this->write(pack($fmt, $msg));
+    return $this;
+  }
+  
+  /**
+   * reads data
+   *
+   * note:
+   * if $bts is 0 this method reads all available data in the buffer
+   * 
+   * note:
+   * $bts can be greater than the amount of available data.
+   * this method will stop reading if noting more is available.
+   *
+   * if your applcation requires a specific amount of data use `read_bytes`
+   *
+   * @param   int       $bts
+   * @return  string
+   * @throws \Exception
+   */
   public function read($bts = 0)
   {
     $r = [ $this->sock ];
@@ -132,6 +174,85 @@ class Socket
     return $buf;
   }
   
+  /** 
+   * reads a specific amount of bytes
+   * 
+   * note: 
+   * this method blocks until the requested amount of bytes 
+   * could be read from the socket!
+   *
+   * if you just want the current buffer use `read` instead
+   *
+   * note:
+   * this method works in two ways:
+   *
+   * 1. if you use a format, it will unpack the data for you.
+   * 2. if you don't use a format, it will return the data as string.
+   * 
+   * you can also use a format as byte-size if the size of the 
+   * requested type is known, like 's' or 'l'.
+   *
+   * @param   int       $bts
+   * @param   string    $fmt
+   * @return  mixed
+   * @throws  \Exception
+   */
+  public function read_bytes($bts, $fmt = '')
+  {
+    if (is_string($bts)) {
+      // @see <http://www.php.net/manual/de/function.pack.php>      
+      switch ($fmt = $bts) {
+        case 'c':
+        case 'C':
+        case 'x':
+          $bts = 1;
+          break;
+          
+        case 's':
+        case 'S':
+        case 'n':
+        case 'v':
+          $bts = 2;
+          break;
+          
+        case 'l':
+        case 'L':
+        case 'N':
+        case 'V':
+          $bts = 4;
+          break;
+          
+        default:            
+          throw new InvalidArgumentException(
+            'the requested format "' . $fmt . '" does not have '
+            . 'a fixed width. please provide the requested amount '
+            . 'of bytes if you want to use a format like that! '
+            . 'you can also omit the format-parameter and unpack '
+            . 'the raw-data by yourself.'
+          );
+      }
+    }
+  
+    $r = [ $this->sock ];
+    $w = [];
+    $e = [];
+        
+    socket_select($r, $w, $e, 10);
+    
+    $buf = '';
+    $res = socket_recv($this->sock, $buf, $bts, MSG_WAITALL);
+    
+    if ($res === false)
+      $this->throw_socket_error();
+    
+    return !empty($fmt) ? unpack($fmt, $buf) : $buf;
+  }
+  
+  /**
+   * closes the socket
+   *
+   * @void
+   */
   public function close()
   {
     socket_clear_error($this->sock);
@@ -141,7 +262,12 @@ class Socket
   // ---------------------------
   // @protected
   
-  // @throws \Exception
+  /**
+   * throws socket-error exception
+   * 
+   * @param   int     $errno    [optional]
+   * @throws \Exception
+   */
   protected function throw_socket_error($errno = -1)
   {
     if ($errno === -1)
@@ -150,13 +276,17 @@ class Socket
     throw new Exception(socket_strerror($errno), $errno);
   }
   
-  // @throws \Exception
+  /**
+   * creates a socket and trys to connect to the given host/port
+   * 
+   * @throws \Exception
+   */
   protected function connect()
   {
     $this->sock = socket_create(AF_INET, SOCK_STREAM, SOL_TCP);
     
     if (false === $this->sock)
-      $this->throw_socket_error();
+      throw new Exception('socket could not be created', self::ERR_CREATE);
       
     // this is a service, not a server ;)
     socket_set_block($this->sock);
