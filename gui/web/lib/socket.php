@@ -15,7 +15,7 @@ class Socket
   const DEFAULT_HOST = 'localhost',
         DEFAULT_PORT = 50100; // WIP
   
-  // standard C errorcodes are at the bottom
+  // standard C errorcodes are at the bottom of this file
   const ERR_MISSING = 10000;
         
   protected $sock, $conf;
@@ -23,24 +23,20 @@ class Socket
   // @throws \InvalidArgumentException
   public function __construct(array $conf = [])
   {
-    if (!function_exists('socket_create'))
+    if (!extension_loaded('sockets'))
       throw new Exception('missing socket support', self::ERR_MISSING);
       
     $conf += [ 'host' => self::DEFAULT_HOST, 'port' => self::DEFAULT_PORT ];
     
-    if (!is_string($conf['host']) || empty($conf['host'])
-     || !is_integer($conf['port']) || $conf['port'] <= 1023) {
+    if (!is_string($conf['host']) || empty($conf['host']) || !is_int($conf['port'])) {
       throw new InvalidArgumentException(
-        '`host` must not be empty and `port` must be of type integer > 1023. '
+        '`host` must not be empty and `port` must be of type integer. '
         . 'if you don\'t know the correct values for these variables, '
         . 'try to use the built-in default values.'
       );
     }
     
     $this->conf = &$conf;
-    
-    // -------------------------
-    
     $this->connect();
   }
   
@@ -63,8 +59,6 @@ class Socket
       $this->throw_socket_error();
     
     if ($res < $len) {
-      // $res = gesendet
-      // $len = länge
       $len -= $res;
       
       while ($len) {
@@ -106,37 +100,38 @@ class Socket
         
         if (false === $cnk)
           $this->throw_socket_error();
-        
-        if ($cnk === '')
-          return $buf;
           
+        if ($cnk === '') 
+          return $buf;
+        
         $buf .= $cnk;
       }
       
       return $buf;
     }
-      
+    
+    $bts -= $len; 
+    
     while ($bts) {
       if (socket_select($r, $w, $e, 0) != 1)
         break;
-      
-      $bts -= $len;
+        
       $cnk = socket_read($this->sock, $bts, PHP_BINARY_READ);
       
       if (false === $cnk)
         $this->throw_socket_error();
       
-      if ($cnk === '')
+      if ($cnk === '') 
         return $buf;
       
-      $len += strlen($cnk);
+      $len = strlen($cnk);
+      $bts -= $len;
       $buf .= $cnk;
     }
     
     return $buf;
   }
   
-  // @throws Exception
   public function close()
   {
     socket_clear_error($this->sock);
@@ -146,7 +141,7 @@ class Socket
   // ---------------------------
   // @protected
   
-  // @throws Exception
+  // @throws \Exception
   protected function throw_socket_error($errno = -1)
   {
     if ($errno === -1)
