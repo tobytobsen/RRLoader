@@ -1,27 +1,26 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <windows.h>
 
-#define CHR_SIZE 255
-#define CMD_SIZE 511
+#define STR_SIZE 255
+#define CMD_SIZE 512
 
-int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR args, int cs) {
-  char cli[CHR_SIZE] = { 0 }, 
-       cmd[CHR_SIZE] = "../boot.php ",
-       exe[CMD_SIZE] = { 0 };
+int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cmd_line, int cs) {
+  char cli_path[STR_SIZE] = { 0 }, 
+       cmd_args[STR_SIZE] = "../boot.php ",
+       cmd_buff[CMD_SIZE] = { 0 };
 
   // ---------------------
   
-  if (strlen(args) > 0) 
-    strncat(cmd, args, sizeof(cmd) - strlen(cmd) - 1); 
+  if (strlen(cmd_line) > 0) 
+    strncat(cmd_buff, cmd_line, STR_SIZE - strlen(cmd_buff) - 1); 
     
-  GetPrivateProfileString("PHP_CLI", "path", NULL, cli, CHR_SIZE, "../boot.ini");
-
-  strncpy(exe, cli, CMD_SIZE - 1);
-  strncat(exe, " ", CMD_SIZE - CHR_SIZE - 1);
-  strncat(exe, cmd, CHR_SIZE);
+  GetPrivateProfileString("PHP_CLI", "path", NULL, cli_path, STR_SIZE, "../boot.ini");
   
-  system(exe);  
+  strncpy(cmd_buff, cli_path, STR_SIZE);  
+  strncat(cmd_buff, " ", 1);
+  strncat(cmd_buff, cmd_args, STR_SIZE);
+  
+  system(cmd_buff);
   return 0;
 }
