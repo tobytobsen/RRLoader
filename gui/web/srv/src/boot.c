@@ -14,7 +14,7 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cmd_line, int cs) {
   // ---------------------
   
   if (strlen(cmd_line) > 0) 
-    strncat(cmd_buff, cmd_line, STR_SIZE - strlen(cmd_buff) - 1); 
+    strncat(cmd_args, cmd_line, STR_SIZE - strlen(cmd_buff) - 1); 
     
   GetPrivateProfileString("PHP_CLI", "path", NULL, cli_path, STR_SIZE, "../boot.ini");
   
