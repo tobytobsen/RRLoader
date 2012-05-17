@@ -21,27 +21,27 @@ $sock = new Socket([ 'host' => 'localhost', 'port' => 50100 ]);
 $sock->write('hello');
 assert($sock->read() === 'hello back!');
 
+// request more bytes as available
+$sock->write('hello');
+assert($sock->read(255) === 'hello back!');
+
 // read bytes
 $sock->write('hello');
 assert($sock->read(5) === 'hello');
 assert($sock->read() === ' back!');
 
-// request more bytes as available
-$sock->write('hello');
-assert($sock->read(255) === 'hello back!');
-
 // read specific ammount of bytes
 $sock->write('bytes-short');
-assert($sock->read_bytes('s')[1] === 1337);
+assert($sock->recv('s') === 1337);
 
 $sock->write('bytes-string');
-$len = $sock->read_bytes('s')[1];
-$str = $sock->read_bytes($len, 'a*')[1];
+$len = $sock->recv('s');
+$str = $sock->recv($len, 'a*');
 assert($len === 4);
 assert($str === 'test');
 
 $sock->write('bytes-string');
-$data = unpack('s1/a*2', $sock->read_bytes(6));
+$data = unpack('s1/a*2', $sock->recv(6));
 assert($data[1] === 4);
 assert($data[2] === 'test');
 

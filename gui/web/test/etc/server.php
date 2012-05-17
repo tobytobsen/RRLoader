@@ -5,30 +5,8 @@
  * simple server to test the socket-lib
  * 
  * note: this server is a single-process server
- * response can take up to 1 second.
+ * response has a 1sec delay.
  */
-
-/*
-
-S = SERVER
-C = CLIENT
-
-BEGIN
-  S accepts C 
-  C writes something (input) to S
-
-  CASE "hello" as input
-    S writes "hello back" to C
-  
-  CASE "quit" as input
-    S writes "good bye" to C
-    S closes connection to C
-    
-  DEFAULT
-    S writes "noop" to C
-END
-
-*/ 
  
 set_time_limit(0);
 
@@ -66,13 +44,13 @@ for ($cpl = [];;) {
       array_splice($cpl, $i, 1); 
       
       print '[ connection lost ]' . PHP_EOL;
-      break;
+      continue;
     }
     
     print '-> got input from client: "' . $buf . '"' . PHP_EOL;
     
     $r = [];
-    $w = [ $cpl[$i] ];
+    $w = [ $clt ];
     $e = [];
     
     if (socket_select($r, $w, $e, 0) != 1)
@@ -101,7 +79,7 @@ for ($cpl = [];;) {
         array_splice($cpl, $i, 1);
         
         print '[ connection closed ]' . PHP_EOL;
-        break 2;
+        break;
         
       default:
         socket_write($clt, 'noop', 4);
