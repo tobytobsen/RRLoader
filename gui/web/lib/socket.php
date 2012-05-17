@@ -69,7 +69,7 @@ class Socket
     $res = socket_write($this->sock, $msg, $len);
     
     if ($res === false)
-      $this->throw_socket_error();
+      $this->throwSocketError();
     
     if ($res < $len) {
       $len -= $res;
@@ -79,7 +79,7 @@ class Socket
         $res = socket_write($this->sock, $msg, $len);
         
         if (false === $res)
-          $this->throw_socket_error();
+          $this->throwSocketError();
           
         $len -= $res;
       }
@@ -89,33 +89,19 @@ class Socket
   }
   
   /**
-   * write raw data 
-   *
-   * @param   string    $msg
-   * @param   string    $fmt
-   * @return  self
-   * @throws  \Exception
-   */
-  public function write_bytes($msg, $fmt = '')
-  {    
-    $this->write(pack($fmt, $msg));
-    return $this;
-  }
-  
-  /**
    * reads data
    *
    * note:
    * if $bts is 0 this method reads all available data in the buffer
-   * 
+   *
    * note:
    * $bts can be greater than the amount of available data.
    * this method will stop reading if noting more is available.
    *
-   * if your applcation requires a specific amount of data use `read_bytes`
+   * if your application requires a specific amount of data use `recv`
    *
    * @param   int       $bts
-   * @return  string
+   * @return string
    * @throws \Exception
    */
   public function read($bts = 0)
@@ -129,7 +115,7 @@ class Socket
     $buf = socket_read($this->sock, $bts ?: 4096, PHP_BINARY_READ);
     
     if (false === $buf)
-      $this->throw_socket_error();
+      $this->throwSocketError();
     
     $len = strlen($buf);
     
@@ -141,9 +127,9 @@ class Socket
         $cnk = socket_read($this->sock, 4096, PHP_BINARY_READ);
         
         if (false === $cnk)
-          $this->throw_socket_error();
+          $this->throwSocketError();
           
-        if ($cnk === '') 
+        if ($cnk === '')
           return $buf;
         
         $buf .= $cnk;
@@ -152,7 +138,7 @@ class Socket
       return $buf;
     }
     
-    $bts -= $len; 
+    $bts -= $len;
     
     while ($bts) {
       if (socket_select($r, $w, $e, 0) != 1)
@@ -161,9 +147,9 @@ class Socket
       $cnk = socket_read($this->sock, $bts, PHP_BINARY_READ);
       
       if (false === $cnk)
-        $this->throw_socket_error();
+        $this->throwSocketError();
       
-      if ($cnk === '') 
+      if ($cnk === '')
         return $buf;
       
       $len = strlen($cnk);
@@ -176,9 +162,9 @@ class Socket
   
   /** 
    * reads a specific amount of bytes
-   * 
-   * note: 
-   * this method blocks until the requested amount of bytes 
+   *
+   * note:
+   * this method blocks until the requested amount of bytes
    * could be read from the socket!
    *
    * if you just want the current buffer use `read` instead
@@ -188,64 +174,36 @@ class Socket
    *
    * 1. if you use a format, it will unpack the data for you.
    * 2. if you don't use a format, it will return the data as string.
-   * 
-   * you can also use a format as byte-size if the size of the 
-   * requested type is known, like 's' or 'l'.
    *
-   * @param   int       $bts
-   * @param   string    $fmt
-   * @return  mixed
-   * @throws  \Exception
+   * note: you can set $bts to a format if the size is known.
+   * supported sizes are: c,C,x,s,S,n,v,l,L,N,V (see ::sizeof())
+   *
+   * @param   int     $bts
+   * @param   string  $fmt
+   * @return mixed
+   * @throws \Exception
    */
-  public function read_bytes($bts, $fmt = '')
+  public function recv($bts, $fmt = '')
   {
-    if (is_string($bts)) {
-      // @see <http://www.php.net/manual/de/function.pack.php>      
-      switch ($fmt = $bts) {
-        case 'c':
-        case 'C':
-        case 'x':
-          $bts = 1;
-          break;
-          
-        case 's':
-        case 'S':
-        case 'n':
-        case 'v':
-          $bts = 2;
-          break;
-          
-        case 'l':
-        case 'L':
-        case 'N':
-        case 'V':
-          $bts = 4;
-          break;
-          
-        default:            
-          throw new InvalidArgumentException(
-            'the requested format "' . $fmt . '" does not have '
-            . 'a fixed width. please provide the requested amount '
-            . 'of bytes if you want to use a format like that! '
-            . 'you can also omit the format-parameter and unpack '
-            . 'the raw-data by yourself.'
-          );
-      }
-    }
-  
     $r = [ $this->sock ];
     $w = [];
     $e = [];
-        
+    
     socket_select($r, $w, $e, 10);
     
+    if (is_string($bts))
+      $bts = $this->sizeof($fmt = $bts);
+      
     $buf = '';
     $res = socket_recv($this->sock, $buf, $bts, MSG_WAITALL);
     
     if ($res === false)
-      $this->throw_socket_error();
+      $this->throwSocketError();
     
-    return !empty($fmt) ? unpack($fmt, $buf) : $buf;
+    if (empty($fmt)) return $buf;
+    
+    $buf = unpack($fmt, $buf);
+    return (count($buf) > 1) ? $buf : ($buf[1] ?: null);
   }
   
   /**
@@ -263,12 +221,42 @@ class Socket
   // @protected
   
   /**
-   * throws socket-error exception
+   * returns the size of a pack-flag in bytes
+   *
+   * @param   string    $fmt
+   * @return  int
+   */
+  protected function sizeof($fmt)
+  {
+    // see <http://www.php.net/manual/de/function.pack.php> 
+    switch ($fmt) {
+      case 'c': case 'C': case 'x':
+        return 1;
+        
+      case 's': case 'S': case 'n': case 'v':
+        return 2;
+        
+      case 'l': case 'L': case 'N': case 'V':
+        return 4;
+        
+      default:            
+        throw new InvalidArgumentException(
+          'the requested format "' . $fmt . '" does not have '
+          . 'a fixed width. please provide the requested amount '
+          . 'of bytes if you want to use a format like that! '
+          . 'you can also omit the format-parameter and unpack '
+          . 'the raw-data by yourself.'
+        );
+    }
+  } 
+  
+  /**
+   * throws an socket-error exception
    * 
    * @param   int     $errno    [optional]
    * @throws \Exception
    */
-  protected function throw_socket_error($errno = -1)
+  protected function throwSocketError($errno = -1)
   {
     if ($errno === -1)
       $errno = socket_last_error($this->sock);
@@ -293,7 +281,7 @@ class Socket
     socket_set_option($this->sock, SOL_SOCKET, SO_RCVTIMEO, [ 'sec' => 1, 'usec' => 500000]);
     
     if (!socket_connect($this->sock, $this->conf['host'], $this->conf['port']))
-      $this->throw_socket_error();
+      $this->throwSocketError();
   }
   
   // -------------------------

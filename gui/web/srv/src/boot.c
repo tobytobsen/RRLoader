@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <stdio.h>
 #include <windows.h>
 
 #define STR_SIZE 255
@@ -17,10 +18,9 @@ int WINAPI WinMain(HINSTANCE hi, HINSTANCE hp, LPSTR cmd_line, int cs) {
     
   GetPrivateProfileString("PHP_CLI", "path", NULL, cli_path, STR_SIZE, "../boot.ini");
   
-  strncpy(cmd_buff, cli_path, STR_SIZE);  
-  strncat(cmd_buff, " ", 1);
-  strncat(cmd_buff, cmd_args, STR_SIZE);
-  
+  /* CMD_SIZE = (STR_SIZE * 2) + " " + \0 */
+  snprintf(cmd_buff, CMD_SIZE, "%s %s", cli_path, cmd_args);
   system(cmd_buff);
+  
   return 0;
 }
