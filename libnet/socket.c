@@ -5,6 +5,12 @@
 #include <string.h>
 #include <stdlib.h>
 
+uint32_t
+socket_count = 0;
+
+bool
+enc_used = false;
+
 /* HELPER */
 int
 get_address_family(ip_ver_t v) {
@@ -15,8 +21,6 @@ get_address_family(ip_ver_t v) {
 	if(v == LIBNET_IPV6) {
 		return AF_INET6;	
 	}
-
-	/* maybe push error here */
 
 	return LIBNET_UNSUPPORTED;
 }
@@ -30,8 +34,6 @@ get_type(proto_t p) {
 	if(p == LIBNET_PROTOCOL_UDP) {
 		return SOCK_DGRAM;
 	}
-
-	/* maybe push error here */
 
 	return LIBNET_UNSUPPORTED;
 }
@@ -48,9 +50,7 @@ find_suitable_info(socket_t __inout *s, const char __in *hostname, port_t port, 
 	};
 
 	if(s == 0) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return false;
 	}
@@ -58,21 +58,12 @@ find_suitable_info(socket_t __inout *s, const char __in *hostname, port_t port, 
 	snprintf(pb, 5, "%d", port);
 
 	if(0 != getaddrinfo(hostname, pb, &hints, &dest)) {
-		/*
-			check which error returned..
-
-			libnet_error_push(LIBNET_E_XYZ)
-		*/
+		libnet_error_set(LIBNET_E_RESOLVE_HOST);
 
 		return false;
 	}
 
 	for(it = dest; it != NULL; it = it->ai_next) {
-
-		/*char buf[32];
-		inet_ntop(it->ai_family, &((struct sockaddr_in *)it->ai_addr)->sin_addr, buf, 31);
-		printf("%s : %s -> %s\r\n", hostname, pb, buf);*/
-
 		tmp_sock = socket(it->ai_family, it->ai_socktype, it->ai_protocol);
 
 		if(tmp_sock <= 0) {
@@ -123,7 +114,7 @@ socket_winsock_initialize(void) {
 #	ifdef WIN32
 
 	if(0 != WSACleanup()) {
-		// ...
+		libnet_error_set(LIBNET_E_W32_CLEANUP);
 	}
 
 #	endif
@@ -135,16 +126,11 @@ socket_winsock_cleanup(void) {
 
 	WSADATA wsaData = {0};
 	if(0 != WSAStartup(MAKEWORD(2, 0), &wsaData)) {
-		/*
-			libnet_error_push(LIBNET_E_W32_XYZ);  --> LIB _ ERROR _ [<PLATFORM>] _ <ERR>
-		*/
+		libnet_error_set(LIBNET_E_W32_STARTUP);
 	}
 
 #	endif
 }
-
-bool
-socket_count = 0;
 
 /* PUBLIC */
 bool
@@ -152,18 +138,8 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v) {
 	if(s == 0
 	|| p >= LIBNET_PROTOCOL_UNSUPPORTED
 	|| v >= LIBNET_UNSUPPORTED_VER) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 		return false;
-	}
-
-	if(v == LIBNET_IPV6) {
-		/* not supported right now */
-		/*
-			libnet_error_push(LIBNET_E_IPV6_NOT_SUPPORTED);
-		*/
-		//return false;
 	}
 
 	memset(s, 0, sizeof(socket_t));
@@ -173,7 +149,7 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v) {
 	if(s->handle <= 0) {
 		/*
 			invalid combination of protocol and address family:
-				libnet_error_push(LIBNET_E_INV_ARG);
+				libnet_error_set(LIBNET_E_INV_ARG);
 
 			.. do some checks if combination is correct
 		*/
@@ -183,6 +159,7 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v) {
 
 	s->ip_ver = v;
 	s->proto = p;
+	s->enc = LIBNET_ENC_NONE;
 
 	if(++socket_count == 1) {
 		socket_winsock_initialize();
@@ -196,22 +173,32 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v) {
 void
 socket_release_socket(socket_t __in *s) {
 	if(s == 0 || s->handle == 0) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
 	}
 
-	if(--socket_count == 0) {
+	if(--socket_count == 0 && s->is_client == false) {
 		socket_winsock_cleanup();
 	}
 
-	/* do some checks here: socket_count < 0 */
-}
+	if(s->enc != LIBNET_ENC_NONE) {
+		switch(s->enc) {
+			case LIBNET_ENC_SSL_V2:
+			case LIBNET_ENC_SSL_V3: {
+				SSL_free(s->ssl.handle);
 
-void
-socket_set_timeout(socket_t __inout *s, struct timeval t) {
-	memcpy(&s->timeout, &t, sizeof(struct timeval));
+				if(s->is_client == false) {
+					SSL_CTX_free(s->ssl.ctx);
+				}
+			} break;
+
+			case LIBNET_ENC_TLS_V1: {
+
+			} break;
+		}
+	}
+
+	/* do some checks here: socket_count < 0 */
 }
 
 bool
@@ -223,9 +210,7 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 	char *t = NULL;
 
 	if(s == 0 || port == 0 || address == 0) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return false;
 	}
@@ -267,12 +252,32 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
-		if(0 != connect(s->handle, info, infolen)) {
-			/*
-				libnet_eror_push(LIBNET_E_CONNECT_FAILED);
-			*/
-			//printf("err: %s\r\n",strerror(errno));
+		int ret = connect(s->handle, info, infolen);
+
+		if(0 != ret) {
+			libnet_error_set(LIBNET_E_CONNECT_FAILED);
 			return false;
+		}
+
+		if(s->enc != LIBNET_ENC_NONE) {
+			ret = 1;
+
+			switch(s->enc) {
+				case LIBNET_ENC_SSL_V2:
+				case LIBNET_ENC_SSL_V3: {
+					ret = SSL_connect(s->ssl.handle);
+				} break;
+
+				case LIBNET_ENC_TLS_V1: {
+
+				} break;
+			}
+
+			if(ret != 1) {
+				libnet_error_set(LIBNET_E_ENC_CONNECT);
+
+				return false;
+			}
 		}
 
 		return true;
@@ -289,9 +294,7 @@ socket_listen(socket_t __inout *s, port_t port) {
 	uint32_t infolen;
 
 	if(s == 0 || port == 0) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return false;
 	}
@@ -319,28 +322,19 @@ socket_listen(socket_t __inout *s, port_t port) {
 		w = setsockopt(s->handle, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 
 		if(w != 0) {
-			/*
-				libnet_eror_push(LIBNET_E_IPV6_ONLY_FAILED);
-			*/
-			//printf("setsockopt: %s\r\n", strerror(errno));
+			libnet_error_set(LIBNET_E_IPV6_ONLY_FAILED);
 			return false;
 		}
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
 		if(0 != bind(s->handle, info, infolen)) {
-			/*
-				libnet_eror_push(LIBNET_E_BIND_FAILED);
-			*/
-			//printf("bind: %s\r\n", strerror(errno));
+			libnet_error_set(LIBNET_E_BIND_FAILED);
 			return false;
 		}
 
 		if(0 != listen(s->handle, 0)) {
-			/*
-				libnet_eror_push(LIBNET_E_LISTEN_FAILED);
-			*/
-			//printf("listen\r\n");
+			libnet_error_set(LIBNET_E_LISTEN_FAILED);
 			return false;
 		}
 
@@ -353,11 +347,29 @@ socket_listen(socket_t __inout *s, port_t port) {
 void
 socket_disconnect(socket_t __inout *s) {
 	if(s == 0) {
-		/*
-			libnet_eror_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return;
+	}
+
+	if(s->enc != LIBNET_ENC_NONE) {
+		int ret = 1;
+
+		switch(s->enc) {
+			case LIBNET_ENC_TLS_V1:
+			case LIBNET_ENC_SSL_V2:
+			case LIBNET_ENC_SSL_V3: {
+				if(s->ssl.handle != NULL) {
+					ret = SSL_shutdown(s->ssl.handle);
+				}
+			} break;
+		}
+
+		if(ret != 1) {
+			libnet_error_set(LIBNET_E_ENC_SHUTDOWN);
+			
+			return;
+		}
 	}
 
 #	ifdef WIN32
@@ -374,9 +386,7 @@ socket_accept(socket_t __in *listener, socket_set_t __inout *set) {
 	int ret = 0;
 
 	if(listener == 0) {
-		/*
-			libnet_eror_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return 0;
 	}
@@ -394,6 +404,31 @@ socket_accept(socket_t __in *listener, socket_set_t __inout *set) {
 		}
 
 		memcpy(&cl, listener, sizeof(socket_t));
+		cl.is_client = true;
+
+		if(listener->enc != LIBNET_ENC_NONE) {
+			switch(listener->enc) {
+				case LIBNET_ENC_TLS_V1:
+				case LIBNET_ENC_SSL_V2:
+				case LIBNET_ENC_SSL_V3: {
+					cl.ssl.handle = SSL_new(listener->ssl.ctx);
+
+					if(cl.ssl.handle == NULL) {
+						libnet_error_set(LIBNET_E_ENC_NEW);
+
+						return false;
+					}
+
+					SSL_set_fd(cl.ssl.handle, cl.handle);
+
+					if(1 != SSL_accept(cl.ssl.handle)) {
+						libnet_error_set(LIBNET_E_ENC_ACCEPT);
+
+						return false;
+					}
+				} break;
+			}
+		}
 
 		if(listener->ip_ver == LIBNET_IPV4) {
 			memcpy(&cl.in.v4, &info, sizeof(struct sockaddr_in));
@@ -415,9 +450,7 @@ socket_async_accept(socket_t __in *listener, socket_set_t __inout *set) {
 	fd_set rs;
 
 	if(listener == 0 || set == 0) {
-		/*
-			libnet_eror_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return false;
 	}
@@ -439,9 +472,7 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 	uint32_t infolen;
 
 	if(s == 0 || s->handle == 0 || buf == 0) {
-		/*
-			libnet_eror_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return 0;
 	}
@@ -455,7 +486,17 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
-		ret = recv(s->handle, buf, len-1, 0);
+		switch(s->enc) {
+			case LIBNET_ENC_TLS_V1:
+			case LIBNET_ENC_SSL_V2:
+			case LIBNET_ENC_SSL_V3: {
+				ret = SSL_read(s->ssl.handle, buf, len);
+			} break;
+
+			case LIBNET_ENC_NONE: {
+				ret = recv(s->handle, buf, len-1, 0);
+			} break;
+		}
 	} else if(s->proto == LIBNET_PROTOCOL_UDP) {
 		ret = recvfrom(s->handle, buf, len, 0, info, &infolen);
 	}
@@ -465,9 +506,7 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 	}
 
 	if(ret < 0) {
-		/*
-			libnet_eror_push(LIBNET_E_RECV_FAILED);
-		*/
+		libnet_error_set(LIBNET_E_RECV_FAILED);
 		return 0;
 	}
 
@@ -480,9 +519,7 @@ socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len) {
 	fd_set rs;
 
 	if(s == 0 || s->handle == 0 || buf == 0) {
-		/*
-			libnet_eror_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return 0;
 	}
@@ -504,9 +541,7 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	uint32_t infolen;
 
 	if(s == 0 || s->handle == 0 || buf == 0) {
-		/*
-			libnet_eror_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return;
 	}
@@ -520,15 +555,23 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
-		ret = send(s->handle, buf, len, 0);
+		switch(s->enc) {
+			case LIBNET_ENC_TLS_V1:
+			case LIBNET_ENC_SSL_V2:
+			case LIBNET_ENC_SSL_V3: {
+				ret = SSL_write(s->ssl.handle, buf, len);
+			} break;
+
+			case LIBNET_ENC_NONE: {
+				ret = send(s->handle, buf, len, 0);
+			} break;
+		}
 	} else if(s->proto == LIBNET_PROTOCOL_UDP) {
 		ret = sendto(s->handle, buf, len, 0, info, infolen);
 	}
 
 	if(ret == 0) {
-		/*
-			libnet_eror_push(LIBNET_E_SEND_FAILED);
-		*/
+		libnet_error_set(LIBNET_E_SEND_FAILED);
 	}
 }
 
@@ -537,9 +580,7 @@ socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	fd_set ws;
 
 	if(s == 0 || s->handle == 0 || buf == 0) {
-		/*
-			libnet_eror_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return;
 	}
@@ -553,12 +594,97 @@ socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 }
 
 void
+socket_set_timeout(socket_t __inout *s, struct timeval t) {
+	memcpy(&s->timeout, &t, sizeof(struct timeval));
+}
+
+bool
+socket_set_encryption(socket_t __inout *s, enc_t enc, const char* f_cert, const char *f_key) {
+	int ret;
+
+	if(s == NULL || f_key == NULL || f_cert == NULL || enc == LIBNET_ENC_NONE) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return false;
+	}
+
+	
+
+	switch(enc) {
+		case LIBNET_ENC_TLS_V1: {
+			s->ssl.method = TLSv1_method();
+		} break;
+		
+		case LIBNET_ENC_SSL_V2: {
+			s->ssl.method = SSLv2_method();
+		} break;
+		
+		case LIBNET_ENC_SSL_V3: {
+			s->ssl.method = SSLv3_method();
+		} break;
+
+		default: {
+			libnet_error_set(LIBNET_E_INV_ARG);
+			return false;
+		} break;
+	}
+
+	if(enc_used == false) {
+		SSL_library_init();
+		SSL_load_error_strings();
+
+		enc_used = true;
+	}
+
+	s->enc = enc;
+	s->ssl.ctx = SSL_CTX_new(s->ssl.method);
+
+	if(s->ssl.ctx == NULL) {
+		libnet_error_set(LIBNET_E_ENC_SSL_CTX);
+
+		return false;
+	}
+
+	ret = SSL_CTX_use_certificate_file(s->ssl.ctx, f_cert, SSL_FILETYPE_PEM);
+
+	if(ret <= 0) {
+		libnet_error_set(LIBNET_E_ENC_SSL_CERT);
+
+		return false;
+	}
+
+	ret = SSL_CTX_use_PrivateKey_file(s->ssl.ctx, f_key, SSL_FILETYPE_PEM);
+
+	if(ret <= 0) {
+		libnet_error_set(LIBNET_E_ENC_SSL_KEY);
+
+		return false;
+	}
+
+	if(0 == SSL_CTX_check_private_key(s->ssl.ctx)) {
+		libnet_error_set(LIBNET_E_ENC_SSL_CERT);
+
+		return false;
+	}
+
+	SSL_CTX_set_verify(s->ssl.ctx, SSL_VERIFY_PEER, NULL);
+	SSL_CTX_set_verify_depth(s->ssl.ctx, 1);
+
+	s->ssl.handle = SSL_new(s->ssl.ctx);
+
+	if(s->ssl.handle == NULL) {
+		libnet_error_set(LIBNET_E_ENC_NEW);
+
+		return false;
+	}
+
+	SSL_set_fd(s->ssl.handle, s->handle);
+	return true;
+}
+
+void
 socket_create_set(socket_set_t __inout *set) {
 	if(set == 0) {
-		/*
-			invalid combination of protocol and address family:
-				libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return;
 	}
@@ -573,11 +699,8 @@ socket_release_set(socket_set_t __in *set) {
 	uint32_t i=0;
 
 	if(set == 0) {
-		/*
-			invalid combination of protocol and address family:
-				libnet_error_push(LIBNET_E_INV_ARG);
-		*/
-
+		libnet_error_set(LIBNET_E_INV_ARG);
+		
 		return;
 	}
 
@@ -588,7 +711,7 @@ socket_release_set(socket_set_t __in *set) {
 	while(set->cl_max > i) {
 		if(set->client[i].handle != 0) {
 			socket_disconnect(&set->client[i]);
-			//socket_release_socket(&set->client[i]);
+			socket_release_socket(&set->client[i]);
 
 			--set->cl_cur;
 		}
@@ -607,17 +730,13 @@ socket_set_add_socket(socket_set_t __inout *set, socket_t *s) {
 	uint32_t i=0;
 
 	if(set == 0 || s == 0) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return;
 	}
 
 	if(set->cl_cur == LIBNET_SET_SIZE) {
-		/*
-			libnet_error_push(LIBNET_E_SET_SIZE_EXCEEDED);
-		*/
+		libnet_error_set(LIBNET_E_SET_SIZE_EXCEEDED);
 
 		return;
 	}
@@ -659,9 +778,7 @@ socket_set_rem_socket(socket_set_t __inout *set, socket_t __in *s) {
 	uint32_t i=0;
 
 	if(set == 0 || s == 0) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return;
 	}
@@ -683,9 +800,7 @@ socket_set_rem_socket(socket_set_t __inout *set, socket_t __in *s) {
 uint32_t
 socket_set_get_client_amount(socket_set_t __in *set) {
 	if(set == 0) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return 0;
 	}
@@ -696,9 +811,7 @@ socket_set_get_client_amount(socket_set_t __in *set) {
 socket_t*
 socket_set_get_client(socket_set_t __in *set, uint32_t i) {
 	if(i > LIBNET_SET_SIZE || set == 0) {
-		/*
-			libnet_error_push(LIBNET_E_INV_ARG);
-		*/
+		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return NULL;
 	}

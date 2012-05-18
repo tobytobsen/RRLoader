@@ -20,13 +20,24 @@
 # include <errno.h>
 #endif
 
+#include <openssl/crypto.h>
+#include <openssl/ssl.h>
+#include <openssl/err.h>
+
 #define LIBNET_SET_SIZE 64
 
-typedef enum socket_proto {
+typedef enum proto {
 	LIBNET_PROTOCOL_TCP = 0,
 	LIBNET_PROTOCOL_UDP,
 	LIBNET_PROTOCOL_UNSUPPORTED,
 } proto_t;
+
+typedef enum encryption {
+	LIBNET_ENC_SSL_V2 = 0,
+	LIBNET_ENC_SSL_V3,
+	LIBNET_ENC_TLS_V1,
+	LIBNET_ENC_NONE,
+} enc_t;
 
 typedef enum ip_ver {
 	LIBNET_IPV4 = 0,
@@ -39,15 +50,24 @@ typedef struct socket {
 	
 	proto_t 	proto		: 2;
 	ip_ver_t	ip_ver		: 2;
+	enc_t		enc			: 2;
 
-	uint8_t		_r0			: 4;
+	uint8_t		_r0			: 2;
 
 	union {
 		struct sockaddr_in6 v6;
 		struct sockaddr_in v4;
 	} in;
 
+	struct {
+		SSL_CTX 	*ctx;
+		SSL 		*handle;
+		SSL_METHOD	*method;
+	} ssl;
+
 	struct timeval timeout;
+
+	bool is_client;
 } socket_t;
 
 typedef struct socket_set {
@@ -67,9 +87,6 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v);
 
 void
 socket_release_socket(socket_t __in *s);
-
-void
-socket_set_timeout(socket_t __inout *s, struct timeval t);
 
 bool
 socket_connect(socket_t __inout *s, const char *address, port_t port);
@@ -97,6 +114,12 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
+
+void
+socket_set_timeout(socket_t __inout *s, struct timeval t);
+
+bool
+socket_set_encryption(socket_t __inout *s, enc_t enc, const char* f_cert, const char *f_key);
 
 void
 socket_create_set(socket_set_t __inout *set);
