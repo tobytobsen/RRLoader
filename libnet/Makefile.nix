@@ -31,6 +31,12 @@ test: static
 
 	$(CC) $(CFLAGS) $(LDFLAGS) tests/tcp_client_sync_ssl.c -o tests/tcp_client_sync_ssl.test -L"bin"
 
+	$(CC) $(CFLAGS) $(LDFLAGS) tests/url_build.c -o tests/url_build.test -L"bin"
+
+	$(CC) $(CFLAGS) $(LDFLAGS) tests/url_parse.c -o tests/url_parse.test -L"bin"
+
+	$(CC) $(CFLAGS) $(LDFLAGS) tests/simple_http_client.c -o tests/simple_http_client.test -L"bin"
+
 
 #	@exec ./tests/tcp_client_sync.test > ./tests/tcp_client_sync.log &
 #	@exec ./tests/tcp_ipv6_client_sync.test > ./tests/tcp_ipv6_client_sync.log &
