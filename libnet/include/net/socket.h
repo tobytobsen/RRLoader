@@ -26,6 +26,8 @@
 
 #define LIBNET_SET_SIZE 64
 
+struct socket_pool;
+
 typedef enum proto {
 	LIBNET_PROTOCOL_TCP = 0,
 	LIBNET_PROTOCOL_UDP,
@@ -82,11 +84,6 @@ typedef struct socket {
 	bool is_client;
 } socket_t;
 
-typedef struct socket_set {
-	uint32_t cl_cur, cl_max;
-	socket_t *client;
-} socket_pool_t;
-
 typedef union ip {
 	uint32_t	v4;
 	uint8_t 	_f[16];
@@ -112,10 +109,10 @@ void
 socket_disconnect(socket_t __inout *s);
 
 bool
-socket_accept(socket_t __in *listener, socket_pool_t __inout *set);
+socket_accept(socket_t __in *listener, struct socket_pool __inout *set);
 
 bool
-socket_async_accept(socket_t __in *listener, socket_pool_t __inout *set);
+socket_async_accept(socket_t __in *listener, struct socket_pool __inout *set);
 
 uint32_t
 socket_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
@@ -134,23 +131,5 @@ socket_set_encryption(socket_t __inout *s, enc_t enc, const char *f_cert, const 
 
 void
 socket_set_param(socket_t __inout *s, socket_param_t k, void *v);
-
-void
-socket_create_pool(socket_pool_t __inout *set);
-
-void
-socket_release_pool(socket_pool_t __in *set);
-
-void
-socket_pool_add_socket(socket_pool_t __inout *set, socket_t __in *s);
-
-void
-socket_pool_rem_socket(socket_pool_t __inout *set, socket_t __in *s);
-
-uint32_t
-socket_pool_get_size(socket_pool_t __in *set);
-
-socket_t*
-socket_pool_get_socket(socket_pool_t __in *set, uint32_t i);
 
 #endif /* LIBNET_SOCKET_H_ */
