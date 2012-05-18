@@ -39,6 +39,11 @@ typedef enum encryption {
 	LIBNET_ENC_NONE,
 } enc_t;
 
+typedef enum encryption_param {
+	LIBNET_ENC_P_NONE = 0,
+	LIBNET_ENC_P_AVOID_UNTRUSTED,
+} enc_param_t;
+
 typedef enum ip_ver {
 	LIBNET_IPV4 = 0,
 	LIBNET_IPV6,
@@ -50,7 +55,7 @@ typedef struct socket {
 	
 	proto_t 	proto		: 2;
 	ip_ver_t	ip_ver		: 2;
-	enc_t		enc			: 2;
+	enc_t		enc_type	: 2;
 
 	uint8_t		_r0			: 2;
 
@@ -59,11 +64,15 @@ typedef struct socket {
 		struct sockaddr_in v4;
 	} in;
 
-	struct {
-		SSL_CTX 	*ctx;
-		SSL 		*handle;
-		SSL_METHOD	*method;
-	} ssl;
+	struct enc {
+		struct {
+			SSL_CTX 	*ctx;
+			SSL 		*handle;
+			SSL_METHOD	*method;
+		} ssl;
+
+		bool avoid_untrusted;
+	};
 
 	struct timeval timeout;
 
@@ -119,7 +128,10 @@ void
 socket_set_timeout(socket_t __inout *s, struct timeval t);
 
 bool
-socket_set_encryption(socket_t __inout *s, enc_t enc, const char* f_cert, const char *f_key);
+socket_set_encryption(socket_t __inout *s, enc_t enc, const char *f_cert, const char *f_key, const char *f_ca_cert);
+
+void
+socket_set_encryption_param(socket_t __inout *s, enc_param_t k, void *v);
 
 void
 socket_create_set(socket_set_t __inout *set);

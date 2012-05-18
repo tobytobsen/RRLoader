@@ -159,7 +159,7 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v) {
 
 	s->ip_ver = v;
 	s->proto = p;
-	s->enc = LIBNET_ENC_NONE;
+	s->enc_type = LIBNET_ENC_NONE;
 
 	if(++socket_count == 1) {
 		socket_winsock_initialize();
@@ -181,14 +181,14 @@ socket_release_socket(socket_t __in *s) {
 		socket_winsock_cleanup();
 	}
 
-	if(s->enc != LIBNET_ENC_NONE) {
-		switch(s->enc) {
+	if(s->enc_type != LIBNET_ENC_NONE) {
+		switch(s->enc_type) {
 			case LIBNET_ENC_SSL_V2:
 			case LIBNET_ENC_SSL_V3: {
-				SSL_free(s->ssl.handle);
+				SSL_free(s->enc.ssl.handle);
 
 				if(s->is_client == false) {
-					SSL_CTX_free(s->ssl.ctx);
+					SSL_CTX_free(s->enc.ssl.ctx);
 				}
 			} break;
 
@@ -259,17 +259,14 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 			return false;
 		}
 
-		if(s->enc != LIBNET_ENC_NONE) {
+		if(s->enc_type != LIBNET_ENC_NONE) {
 			ret = 1;
 
-			switch(s->enc) {
+			switch(s->enc_type) {
+				case LIBNET_ENC_TLS_V1: 
 				case LIBNET_ENC_SSL_V2:
 				case LIBNET_ENC_SSL_V3: {
-					ret = SSL_connect(s->ssl.handle);
-				} break;
-
-				case LIBNET_ENC_TLS_V1: {
-
+					ret = SSL_connect(s->enc.ssl.handle);
 				} break;
 			}
 
@@ -277,8 +274,17 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 				libnet_error_set(LIBNET_E_ENC_CONNECT);
 
 				return false;
-			}
-		}
+			} else {
+				if(s->enc.avoid_untrusted == true) {
+					if(SSL_get_peer_certificate(s->enc.ssl.handle) != NULL) {
+						if(SSL_get_verify_result(s->enc.ssl.handle) != X509_OK) {
+							socket_disconnect(s);
+							return false;
+						} /* if(SSL_get_verify_result(s->enc.ssl.handle) != X509_OK) */
+					} /* if(SSL_get_peer_certificate(s->enc.ssl.handle) != NULL) */
+				} /* if(s->enc.avoid_untrusted == true) */
+			} /* else */
+		} /* if(s->enc_type != LIBNET_ENC_NONE) */
 
 		return true;
 	}
@@ -352,22 +358,22 @@ socket_disconnect(socket_t __inout *s) {
 		return;
 	}
 
-	if(s->enc != LIBNET_ENC_NONE) {
+	if(s->enc_type != LIBNET_ENC_NONE) {
 		int ret = 1;
 
-		switch(s->enc) {
+		switch(s->enc_type) {
 			case LIBNET_ENC_TLS_V1:
 			case LIBNET_ENC_SSL_V2:
 			case LIBNET_ENC_SSL_V3: {
-				if(s->ssl.handle != NULL) {
-					ret = SSL_shutdown(s->ssl.handle);
+				if(s->enc.ssl.handle != NULL) {
+					ret = SSL_shutdown(s->enc.ssl.handle);
 				}
 			} break;
 		}
 
 		if(ret != 1) {
 			libnet_error_set(LIBNET_E_ENC_SHUTDOWN);
-			
+
 			return;
 		}
 	}
@@ -411,17 +417,17 @@ socket_accept(socket_t __in *listener, socket_set_t __inout *set) {
 				case LIBNET_ENC_TLS_V1:
 				case LIBNET_ENC_SSL_V2:
 				case LIBNET_ENC_SSL_V3: {
-					cl.ssl.handle = SSL_new(listener->ssl.ctx);
+					cl.enc.ssl.handle = SSL_new(listener->ssl.ctx);
 
-					if(cl.ssl.handle == NULL) {
+					if(cl.enc.ssl.handle == NULL) {
 						libnet_error_set(LIBNET_E_ENC_NEW);
 
 						return false;
 					}
 
-					SSL_set_fd(cl.ssl.handle, cl.handle);
+					SSL_set_fd(cl.enc.ssl.handle, cl.handle);
 
-					if(1 != SSL_accept(cl.ssl.handle)) {
+					if(1 != SSL_accept(cl.enc.ssl.handle)) {
 						libnet_error_set(LIBNET_E_ENC_ACCEPT);
 
 						return false;
@@ -486,11 +492,11 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
-		switch(s->enc) {
+		switch(s->enc_type) {
 			case LIBNET_ENC_TLS_V1:
 			case LIBNET_ENC_SSL_V2:
 			case LIBNET_ENC_SSL_V3: {
-				ret = SSL_read(s->ssl.handle, buf, len);
+				ret = SSL_read(s->enc.ssl.handle, buf, len);
 			} break;
 
 			case LIBNET_ENC_NONE: {
@@ -555,11 +561,11 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	}
 
 	if(s->proto == LIBNET_PROTOCOL_TCP) {
-		switch(s->enc) {
+		switch(s->enc_type) {
 			case LIBNET_ENC_TLS_V1:
 			case LIBNET_ENC_SSL_V2:
 			case LIBNET_ENC_SSL_V3: {
-				ret = SSL_write(s->ssl.handle, buf, len);
+				ret = SSL_write(s->enc.ssl.handle, buf, len);
 			} break;
 
 			case LIBNET_ENC_NONE: {
@@ -599,27 +605,25 @@ socket_set_timeout(socket_t __inout *s, struct timeval t) {
 }
 
 bool
-socket_set_encryption(socket_t __inout *s, enc_t enc, const char* f_cert, const char *f_key) {
+socket_set_encryption(socket_t __inout *s, enc_t enc, const char *f_cert, const char *f_key, const char *f_ca_cert) {
 	int ret;
 
-	if(s == NULL || f_key == NULL || f_cert == NULL || enc == LIBNET_ENC_NONE) {
+	if(s == NULL || enc == LIBNET_ENC_NONE) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return false;
 	}
 
-	
-
 	switch(enc) {
 		case LIBNET_ENC_TLS_V1: {
-			s->ssl.method = TLSv1_method();
+			s->enc.ssl.method = TLSv1_method();
 		} break;
 		
 		case LIBNET_ENC_SSL_V2: {
-			s->ssl.method = SSLv2_method();
+			s->enc.ssl.method = SSLv2_method();
 		} break;
 		
 		case LIBNET_ENC_SSL_V3: {
-			s->ssl.method = SSLv3_method();
+			s->enc.ssl.method = SSLv3_method();
 		} break;
 
 		default: {
@@ -635,50 +639,86 @@ socket_set_encryption(socket_t __inout *s, enc_t enc, const char* f_cert, const 
 		enc_used = true;
 	}
 
-	s->enc = enc;
-	s->ssl.ctx = SSL_CTX_new(s->ssl.method);
+	s->enc_type = enc;
+	s->enc.ssl.ctx = SSL_CTX_new(s->enc.ssl.method);
 
-	if(s->ssl.ctx == NULL) {
+	if(s->enc.ssl.ctx == NULL) {
 		libnet_error_set(LIBNET_E_ENC_SSL_CTX);
 
 		return false;
 	}
 
-	ret = SSL_CTX_use_certificate_file(s->ssl.ctx, f_cert, SSL_FILETYPE_PEM);
+	if(f_cert != NULL) {
+		ret = SSL_CTX_use_certificate_file(s->enc.ssl.ctx, f_cert, SSL_FILETYPE_PEM);
 
-	if(ret <= 0) {
-		libnet_error_set(LIBNET_E_ENC_SSL_CERT);
+		if(ret <= 0) {
+			libnet_error_set(LIBNET_E_ENC_SSL_CERT);
 
-		return false;
+			return false;
+		}
 	}
 
-	ret = SSL_CTX_use_PrivateKey_file(s->ssl.ctx, f_key, SSL_FILETYPE_PEM);
+	if(f_key != NULL) {
+		ret = SSL_CTX_use_PrivateKey_file(s->enc.ssl.ctx, f_key, SSL_FILETYPE_PEM);
 
-	if(ret <= 0) {
-		libnet_error_set(LIBNET_E_ENC_SSL_KEY);
+		if(ret <= 0) {
+			libnet_error_set(LIBNET_E_ENC_SSL_KEY);
 
-		return false;
+			return false;
+		}
+
+		if(0 == SSL_CTX_check_private_key(s->enc.ssl.ctx)) {
+			libnet_error_set(LIBNET_E_ENC_SSL_CERT);
+
+			return false;
+		}
 	}
 
-	if(0 == SSL_CTX_check_private_key(s->ssl.ctx)) {
-		libnet_error_set(LIBNET_E_ENC_SSL_CERT);
+	if(f_ca_cert != NULL) {
+		ret = SSL_CTX_load_verify_locations(s->enc.ssl.ctx, f_ca_cert, NULL);
 
-		return false;
+		if(1 != ret) {
+			libnet_error_set(LIBNET_E_ENC_SSL_CA_CERT);
+
+			return false;
+		}
 	}
 
-	SSL_CTX_set_verify(s->ssl.ctx, SSL_VERIFY_PEER, NULL);
-	SSL_CTX_set_verify_depth(s->ssl.ctx, 1);
+	SSL_CTX_set_verify(s->enc.ssl.ctx, SSL_VERIFY_PEER, NULL);
+	SSL_CTX_set_verify_depth(s->enc.ssl.ctx, 1);
 
-	s->ssl.handle = SSL_new(s->ssl.ctx);
+	s->enc.ssl.handle = SSL_new(s->enc.ssl.ctx);
 
-	if(s->ssl.handle == NULL) {
+	if(s->enc.ssl.handle == NULL) {
 		libnet_error_set(LIBNET_E_ENC_NEW);
 
 		return false;
 	}
 
-	SSL_set_fd(s->ssl.handle, s->handle);
+	SSL_set_fd(s->enc.ssl.handle, s->handle);
 	return true;
+}
+
+void
+socket_set_encryption_param(socket_t __inout *s, enc_param_t k, void *v) {
+	if(s == 0) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+
+		return;
+	}
+
+	switch(k) {
+		default: return;
+
+		case LIBNET_ENC_P_AVOID_UNTRUSTED: {
+			if(v == NULL) {
+				libnet_error_set(LIBNET_E_INV_ARG);
+				return;
+			}
+
+			s->enc.avoid_untrusted = (bool)(*v);
+		} break;
+	}
 }
 
 void
