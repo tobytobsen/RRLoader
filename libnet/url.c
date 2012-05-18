@@ -62,7 +62,7 @@ url_build(char __inout *dst, uint32_t len, url_t url) {
 }
 
 void
-url_parse(char __in *src, url_t __inout *url) {
+url_parse(const char __in *src, url_t __inout *url) {
 	char *tmp, *last = src, *tok;
 
 	if(src == 0 || url == 0) {
@@ -130,6 +130,8 @@ url_parse(char __in *src, url_t __inout *url) {
 		} else if((tmp - last) < LIBNET_URL_SIZE_PATH) {
 			strncpy(url->path, last, (tmp - last));
 		}
+	} else {
+		snprintf(url->path, LIBNET_URL_SIZE_PATH - 1, "/");
 	}
 
 	if(tmp != NULL) {
