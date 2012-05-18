@@ -277,10 +277,10 @@ socket_connect(socket_t __inout *s, const char *address, port_t port) {
 			} else {
 				if(s->enc.avoid_untrusted == true) {
 					if(SSL_get_peer_certificate(s->enc.ssl.handle) != NULL) {
-						if(SSL_get_verify_result(s->enc.ssl.handle) != X509_OK) {
+						if(SSL_get_verify_result(s->enc.ssl.handle) != X509_V_OK) {
 							socket_disconnect(s);
 							return false;
-						} /* if(SSL_get_verify_result(s->enc.ssl.handle) != X509_OK) */
+						} /* if(SSL_get_verify_result(s->enc.ssl.handle) != X509_V_OK) */
 					} /* if(SSL_get_peer_certificate(s->enc.ssl.handle) != NULL) */
 				} /* if(s->enc.avoid_untrusted == true) */
 			} /* else */
@@ -388,7 +388,7 @@ socket_disconnect(socket_t __inout *s) {
 }
 
 bool
-socket_accept(socket_t __in *listener, socket_set_t __inout *set) {
+socket_accept(socket_t __in *listener, socket_pool_t __inout *set) {
 	int ret = 0;
 
 	if(listener == 0) {
@@ -412,12 +412,12 @@ socket_accept(socket_t __in *listener, socket_set_t __inout *set) {
 		memcpy(&cl, listener, sizeof(socket_t));
 		cl.is_client = true;
 
-		if(listener->enc != LIBNET_ENC_NONE) {
-			switch(listener->enc) {
+		if(listener->enc_type != LIBNET_ENC_NONE) {
+			switch(listener->enc_type) {
 				case LIBNET_ENC_TLS_V1:
 				case LIBNET_ENC_SSL_V2:
 				case LIBNET_ENC_SSL_V3: {
-					cl.enc.ssl.handle = SSL_new(listener->ssl.ctx);
+					cl.enc.ssl.handle = SSL_new(listener->enc.ssl.ctx);
 
 					if(cl.enc.ssl.handle == NULL) {
 						libnet_error_set(LIBNET_E_ENC_NEW);
@@ -452,7 +452,7 @@ socket_accept(socket_t __in *listener, socket_set_t __inout *set) {
 }
 
 bool
-socket_async_accept(socket_t __in *listener, socket_set_t __inout *set) {
+socket_async_accept(socket_t __in *listener, socket_pool_t __inout *set) {
 	fd_set rs;
 
 	if(listener == 0 || set == 0) {
@@ -599,11 +599,6 @@ socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	}
 }
 
-void
-socket_set_timeout(socket_t __inout *s, struct timeval t) {
-	memcpy(&s->timeout, &t, sizeof(struct timeval));
-}
-
 bool
 socket_set_encryption(socket_t __inout *s, enc_t enc, const char *f_cert, const char *f_key, const char *f_ca_cert) {
 	int ret;
@@ -700,7 +695,7 @@ socket_set_encryption(socket_t __inout *s, enc_t enc, const char *f_cert, const 
 }
 
 void
-socket_set_encryption_param(socket_t __inout *s, enc_param_t k, void *v) {
+socket_set_param(socket_t __inout *s, socket_param_t k, void *v) {
 	if(s == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
@@ -710,19 +705,27 @@ socket_set_encryption_param(socket_t __inout *s, enc_param_t k, void *v) {
 	switch(k) {
 		default: return;
 
-		case LIBNET_ENC_P_AVOID_UNTRUSTED: {
+		case LIBNET_P_TIMEOUT: {
+			if(v == NULL) {
+				memset(&s->timeout, 0, sizeof(struct timeval));
+			} else {
+				memcpy(&s->timeout, v, sizeof(struct timeval));
+			}
+		} break;
+
+		case LIBNET_P_ENC_AVOID_UNTRUSTED: {
 			if(v == NULL) {
 				libnet_error_set(LIBNET_E_INV_ARG);
 				return;
 			}
 
-			s->enc.avoid_untrusted = (bool)(*v);
+			s->enc.avoid_untrusted = *(bool *)(v);
 		} break;
 	}
 }
 
 void
-socket_create_set(socket_set_t __inout *set) {
+socket_create_pool(socket_pool_t __inout *set) {
 	if(set == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
@@ -735,7 +738,7 @@ socket_create_set(socket_set_t __inout *set) {
 }
 
 void
-socket_release_set(socket_set_t __in *set) {
+socket_release_pool(socket_pool_t __in *set) {
 	uint32_t i=0;
 
 	if(set == 0) {
@@ -766,7 +769,7 @@ socket_release_set(socket_set_t __in *set) {
 }
 
 void
-socket_set_add_socket(socket_set_t __inout *set, socket_t *s) {
+socket_set_add_socket(socket_pool_t __inout *set, socket_t *s) {
 	uint32_t i=0;
 
 	if(set == 0 || s == 0) {
@@ -814,7 +817,7 @@ socket_set_add_socket(socket_set_t __inout *set, socket_t *s) {
 }
 
 void
-socket_set_rem_socket(socket_set_t __inout *set, socket_t __in *s) {
+socket_set_rem_socket(socket_pool_t __inout *set, socket_t __in *s) {
 	uint32_t i=0;
 
 	if(set == 0 || s == 0) {
@@ -838,7 +841,7 @@ socket_set_rem_socket(socket_set_t __inout *set, socket_t __in *s) {
 }
 
 uint32_t
-socket_set_get_client_amount(socket_set_t __in *set) {
+socket_pool_get_size(socket_pool_t __in *set) {
 	if(set == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
@@ -849,7 +852,7 @@ socket_set_get_client_amount(socket_set_t __in *set) {
 }
 
 socket_t*
-socket_set_get_client(socket_set_t __in *set, uint32_t i) {
+socket_pool_get_socket(socket_pool_t __in *set, uint32_t i) {
 	if(i > LIBNET_SET_SIZE || set == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 

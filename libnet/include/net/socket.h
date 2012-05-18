@@ -39,10 +39,13 @@ typedef enum encryption {
 	LIBNET_ENC_NONE,
 } enc_t;
 
-typedef enum encryption_param {
-	LIBNET_ENC_P_NONE = 0,
-	LIBNET_ENC_P_AVOID_UNTRUSTED,
-} enc_param_t;
+typedef enum socket_param {
+	LIBNET_P_NONE = 0,
+
+	LIBNET_P_TIMEOUT,
+
+	LIBNET_P_ENC_AVOID_UNTRUSTED,
+} socket_param_t;
 
 typedef enum ip_ver {
 	LIBNET_IPV4 = 0,
@@ -64,7 +67,7 @@ typedef struct socket {
 		struct sockaddr_in v4;
 	} in;
 
-	struct enc {
+	struct {
 		struct {
 			SSL_CTX 	*ctx;
 			SSL 		*handle;
@@ -72,7 +75,7 @@ typedef struct socket {
 		} ssl;
 
 		bool avoid_untrusted;
-	};
+	} enc;
 
 	struct timeval timeout;
 
@@ -82,7 +85,7 @@ typedef struct socket {
 typedef struct socket_set {
 	uint32_t cl_cur, cl_max;
 	socket_t *client;
-} socket_set_t;
+} socket_pool_t;
 
 typedef union ip {
 	uint32_t	v4;
@@ -90,6 +93,8 @@ typedef union ip {
 } ip_t;
 
 typedef uint16_t 	port_t;
+
+#define socket_set_timeout(s, t) socket_set_param((s), LIBNET_P_TIMEOUT, ((void *)(&t)))
 
 bool
 socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v);
@@ -107,10 +112,10 @@ void
 socket_disconnect(socket_t __inout *s);
 
 bool
-socket_accept(socket_t __in *listener, socket_set_t __inout *set);
+socket_accept(socket_t __in *listener, socket_pool_t __inout *set);
 
 bool
-socket_async_accept(socket_t __in *listener, socket_set_t __inout *set);
+socket_async_accept(socket_t __in *listener, socket_pool_t __inout *set);
 
 uint32_t
 socket_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
@@ -124,31 +129,28 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 
-void
-socket_set_timeout(socket_t __inout *s, struct timeval t);
-
 bool
 socket_set_encryption(socket_t __inout *s, enc_t enc, const char *f_cert, const char *f_key, const char *f_ca_cert);
 
 void
-socket_set_encryption_param(socket_t __inout *s, enc_param_t k, void *v);
+socket_set_param(socket_t __inout *s, socket_param_t k, void *v);
 
 void
-socket_create_set(socket_set_t __inout *set);
+socket_create_pool(socket_pool_t __inout *set);
 
 void
-socket_release_set(socket_set_t __in *set);
+socket_release_pool(socket_pool_t __in *set);
 
 void
-socket_set_add_socket(socket_set_t __inout *set, socket_t __in *s);
+socket_pool_add_socket(socket_pool_t __inout *set, socket_t __in *s);
 
 void
-socket_set_rem_socket(socket_set_t __inout *set, socket_t __in *s);
+socket_pool_rem_socket(socket_pool_t __inout *set, socket_t __in *s);
 
 uint32_t
-socket_set_get_client_amount(socket_set_t __in *set);
+socket_pool_get_size(socket_pool_t __in *set);
 
 socket_t*
-socket_set_get_client(socket_set_t __in *set, uint32_t i);
+socket_pool_get_socket(socket_pool_t __in *set, uint32_t i);
 
 #endif /* LIBNET_SOCKET_H_ */
