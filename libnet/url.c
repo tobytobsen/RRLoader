@@ -70,6 +70,8 @@ url_parse(char __in *src, url_t __inout *url) {
 		return;
 	}
 
+	memset(url, 0, sizeof(url_t));
+
 	tmp = strstr(src, "://");
 	if(tmp != NULL) {
 		if((tmp - src) < LIBNET_URL_SIZE_SCHEME) {
@@ -93,9 +95,9 @@ url_parse(char __in *src, url_t __inout *url) {
 
 			last = tmp;
 		}
+	} else {
+		tmp = last;
 	}
-
-	last = ++tmp;
 
 	while(*tmp != ':' && *tmp != '/' && *tmp != 0) {
 		tmp++;
