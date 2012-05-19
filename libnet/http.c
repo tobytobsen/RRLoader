@@ -42,10 +42,10 @@ build_request(http_con_t *h, http_request_t *req) {
 		req->path,
 		get_version_str(h->version));
 
-	if(req->header.entites > 0 && req->header.entity != 0) {
+	if(req->header.entities > 0 && req->header.entity != 0) {
 		uint32_t i=0;
 
-		for(i=0; i<req->header.entites; i++) {
+		for(i=0; i<req->header.entities; i++) {
 			snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s: %s\r\n",
 				buf, req->header.entity[i].key, req->header.entity[i].value);
 		}
@@ -55,19 +55,6 @@ build_request(http_con_t *h, http_request_t *req) {
 	return buf;
 }
 
-/*
-	HTTP/1.0 200 OK
-	Date: Fri, 18 May 2012 22:36:38 GMT
-	Expires: -1
-	Cache-Control: private, max-age=0
-	Content-Type: text/html; charset=ISO-8859-1
-	Set-Cookie: PREF=ID=794ae1c3163cfea4:FF=0:TM=1337380598:LM=1337380598:S=KSZqFsPOHytCiVkG; expires=Sun, 18-May-2014 22:36:38 GMT; path=/; domain=.google.de
-	Set-Cookie: NID=59=KNUuU_R_cNE88VpLnMO6Sfd09_JQxun-mwfMMMo85CivXMRl_-bflkn_VS-1oGEtus_XjwBZfeukAx2leswea1mZs46_EsFE5vmGrWRXheJ9FfCRh5TKoUrntNFIuc18; expires=Sat, 17-Nov-2012 22:36:38 GMT; path=/; domain=.google.de; HttpOnly
-	P3P: CP="This is not a P3P policy! See http://www.google.com/support/accounts/bin/answer.py?hl=en&answer=151657 for more info."
-	Server: gws
-	X-XSS-Protection: 1; mode=block
-	X-Frame-Options: SAMEORIGIN
-*/
 void
 parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
 	char *tmp;
@@ -86,8 +73,30 @@ parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
 	}
 
 	tmp = buf + tmplen + 1;
+	res->sig = LIBNET_SIG_HTTP_RESPONSE;
 	res->code = (http_response_code_t)(atoi(tmp));
 	res->body = 0;
+
+	tmp = strtok(buf, "\r\n");
+	while(NULL != (tmp = strtok(NULL, "\r\n"))) {
+		http_header_ent_t he = {0};
+		char *del = strstr(tmp, ":") + 1;
+		
+		if(del == NULL) {
+			break;
+		}
+
+		if((del - tmp) < LIBNET_HTTP_SIZE_BUF) {
+			strncpy(he.key, tmp, (del - tmp) - 1);
+
+			while(*del != 0  && *del != '\r' && *del == ' ') {
+				del++;
+			}
+
+			strncpy(he.value, del, LIBNET_HTTP_SIZE_BUF);
+			http_header_set_kv_pair(res, he.key, he.value);
+		}
+	}
 }
 
 bool
@@ -158,11 +167,13 @@ http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_
 	}
 
 	memset(r, 0, sizeof(http_request_t));
+	
+	r->sig = LIBNET_SIG_HTTP_REQUEST;
 	r->method = m;
 
 	strncpy(r->path, path, LIBNET_HTTP_SIZE_BUF);
 
-	http_request_set_header(r, "host", h->url.host);
+	http_header_set_kv_pair(r, "host", h->url.host);
 }
 
 void
@@ -215,29 +226,70 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 }
 
 void
-http_request_set_header(http_request_t __inout *r, const char __in *k, const char __in *v) {
+http_header_set_kv_pair(void __inout *r, const char __in *k, const char __in *v) {
 	http_header_ent_t *ent;
+	http_header_t *header;
 
 	if(r == 0 || k == 0 || v == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
 	}
 
-	if(r->header.entity == 0) {
-		r->header.entity = calloc(1, sizeof(http_header_ent_t));
-	} else {
-		r->header.entity = realloc(r->header.entity, 
-			sizeof(http_header_ent_t) * (r->header.entites + 1));
+	switch(*(uint8_t *)(r)) {
+		case LIBNET_SIG_HTTP_RESPONSE: {
+			header = &((http_response_t *)(r))->header;
+		} break;
+
+		case LIBNET_SIG_HTTP_REQUEST: {
+			header = &((http_request_t *)(r))->header;
+		} break;
 	}
 
-	if(r->header.entity == 0) {
+	if(header->entity == 0) {
+		header->entity = calloc(1, sizeof(http_header_ent_t));
+	} else {
+		header->entity = realloc(header->entity, 
+			sizeof(http_header_ent_t) * (header->entities + 1));
+	}
+
+	if(header->entity == 0) {
 		//libnet_error_set(LIBNET_E_MEM);
 		return;
 	}
 
-	ent = &r->header.entity[r->header.entites++];
+	ent = &header->entity[header->entities++];
 	strncpy(ent->key, k, LIBNET_HTTP_SIZE_BUF);
 	strncpy(ent->value, v, LIBNET_HTTP_SIZE_BUF);
+	ent->key[0] = tolower(ent->key[0]);
+}
+
+const char *
+http_header_get_value_by_name(void __inout *r, const char __in *name) {
+	http_header_t *h;
+	uint32_t i;
+
+	if(r == 0 || name == 0) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}	
+
+	switch(*(uint8_t *)(r)) {
+		case LIBNET_SIG_HTTP_RESPONSE: {
+			h = &((http_response_t *)(r))->header;
+		} break;
+
+		case LIBNET_SIG_HTTP_REQUEST: {
+			h = &((http_request_t *)(r))->header;
+		} break;
+	}
+
+	for(i=0; i<h->entities; i++) {
+		if(!strcmp(h->entity[i].key, name)) {
+			return h->entity[i].value;
+		}
+	}
+
+	return NULL;
 }
 
 void
