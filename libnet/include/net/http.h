@@ -11,6 +11,8 @@
 #include <net/url.h>
 #include <net/socket.h>
 
+#include <net/mutex.h>
+
 #define LIBNET_HTTP_SIZE_BUF 		256
 #define LIBNET_HTTP_SIZE_REQ		4096
 
@@ -83,14 +85,6 @@ typedef struct http_header {
 	http_header_ent_t *entity;
 } http_header_t;
 
-typedef struct http_connection {
-	socket_t handle;
-	char session[LIBNET_HTTP_SIZE_BUF];
-
-	http_version_t version;
-	struct url url;
-} http_con_t;
-
 typedef struct http_request {
 	uint8_t sig;
 
@@ -110,6 +104,18 @@ typedef struct http_response {
 
 	char *body;
 } http_response_t;
+
+typedef struct http_connection {
+	socket_t handle;
+	char session[LIBNET_HTTP_SIZE_BUF];
+
+	http_version_t version;
+	struct url url;
+
+	http_response_t *last_response;
+
+	mutex_t mtx_re;
+} http_con_t;
 
 /**
  * http_connect() creates a http connection handle and connects to the remote/local host

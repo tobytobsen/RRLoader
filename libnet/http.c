@@ -147,6 +147,12 @@ http_disconnect(http_con_t __inout *h) {
 
 	socket_disconnect(&h->handle);
 	socket_release_socket(&h->handle);
+
+	if(h->last_response != 0) {
+		if(h->last_response->body != 0) {
+			free(h->last_response->body);
+		}
+	}
 }
 
 void
@@ -207,6 +213,16 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		return;
 	}
 
+	mutex_acquire(&h->mtx_re);
+
+	if(h->last_response != 0) {
+		if(h->last_response->body != 0) {
+			free(h->last_response->body);
+		}
+
+		h->last_response = 0;
+	}
+
 	buf = build_request(h, req);
 	socket_write(&h->handle, buf, strlen(buf));
 
@@ -223,6 +239,9 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 
 	parse_response(h, res, buf, strlen(buf));
 	free(buf);
+
+	h->last_response = res;
+	mutex_release(&h->mtx_re);
 }
 
 void
