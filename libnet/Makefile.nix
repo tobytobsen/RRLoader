@@ -10,6 +10,10 @@ LDFLAGS+= -lnet -lcrypto -lssl
 
 static: $(OBJ)
 	$(AR) $(ARFLAGS) $(TARGET).a $(OBJ) ../ext/lib/darwin-x86_64/libcrypto.a ../ext/lib/darwin-x86_64/libssl.a
+	
+ifeq ($(GEN_DOC), 1)
+	$(DOX)
+endif
 
 shared:
 	@echo Shared Library is not supported yet
