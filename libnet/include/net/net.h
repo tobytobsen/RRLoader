@@ -1,3 +1,8 @@
+/**
+ * this file contains general stuff such as error handling
+ *
+ * @file net.h
+*/
 #ifndef LIBNET_NET_H_
 #define LIBNET_NET_H_
 
@@ -5,12 +10,29 @@
 
 #define LIBNET_UNSUPPORTED (unsigned int)(-1)
 
+/**
+ * libnet_error_set() sets the current errno
+ *
+ * @param err errno to set
+*/
 void
 libnet_error_set(uint32_t err);
 
+/**
+ * libnet_error_get() returns the current errno
+ *
+ * @return returns the current errno
+*/
 uint32_t
 libnet_error_get(void);
 
+/**
+ * libnet_str_error() is used to get a string which explains the errno
+ *
+ * @param err errno
+ *
+ * @return returns a string which explains the errno
+*/
 const char*
 libnet_str_error(uint32_t err);
 
