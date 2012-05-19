@@ -243,6 +243,8 @@ http_header_set_kv_pair(void __inout *r, const char __in *k, const char __in *v)
 		case LIBNET_SIG_HTTP_REQUEST: {
 			header = &((http_request_t *)(r))->header;
 		} break;
+
+		default: return; // invalid signature
 	}
 
 	if(header->entity == 0) {
