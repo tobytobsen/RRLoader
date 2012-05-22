@@ -19,6 +19,9 @@
 #define LIBNET_HTTP_PORT_DEF		80
 #define LIBNET_HTTPS_PORT_DEF		443
 
+#define LIBNET_HTTP_DEL				"\r\n"
+#define LIBNET_HTTP_EOH				"\r\n\r\n"
+
 typedef enum http_sig {
 	LIBNET_SIG_HTTP_RESPONSE = 0,
 	LIBNET_SIG_HTTP_REQUEST,

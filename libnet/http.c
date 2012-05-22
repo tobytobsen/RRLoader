@@ -83,8 +83,8 @@ parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
 	res->code = (http_response_code_t)(atoi(tmp));
 	res->body = 0;
 
-	tmp = strtok(buf, "\r\n");
-	while(NULL != (tmp = strtok(NULL, "\r\n"))) {
+	tmp = strtok(buf, LIBNET_HTTP_DEL);
+	while(NULL != (tmp = strtok(NULL, LIBNET_HTTP_DEL))) {
 		http_header_ent_t he = {0};
 		char *del = strstr(tmp, ":") + 1;
 		
@@ -253,7 +253,7 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 	while(0 != (len = socket_read(&h->handle, &c, 1))) {
 		chunk[o++] = c;
 
-		if(strstr(chunk, "\r\n\r\n")) {
+		if(strstr(chunk, LIBNET_HTTP_EOH)) {
 			break;
 		}
 
