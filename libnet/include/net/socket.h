@@ -112,7 +112,7 @@ typedef union ip {
 typedef uint16_t 	port_t;
 
 #define socket_set_timeout(s, t) socket_set_param((s), LIBNET_P_TIMEOUT, ((void *)(&t)))
-#define socket_can_accept(s) socket_can_read((s))
+#define socket_can_accept(s) socket_is_readable((s))
 
 /**
  * socket_create_socket() creates a socket handle of given protocol and IP version 
@@ -211,8 +211,17 @@ socket_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
 uint32_t
 socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
 
-uint32_t
-socket_can_read(socket_t __in *s);
+/**
+ * socket_async_read() is the asynchronous version of socket_read()
+ *
+ * @param s socket handle
+ * @param buf data storage
+ * @param len size of the storage
+ *
+ * @return returns bytes read
+*/
+bool
+socket_is_readable(socket_t __in *s);
 
 /**
  * socket_write() writes to a socket
@@ -234,8 +243,8 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 
-uint32_t
-socket_can_write(socket_t __in *s);
+bool
+socket_is_writeable(socket_t __in *s);
 
 /**
  * socket_set_encryption() is used to configure the socket for SSL or TLS

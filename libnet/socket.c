@@ -460,7 +460,7 @@ socket_async_accept(socket_t __in *listener, socket_pool_t __inout *pool) {
 		return false;
 	}
 
-	if(socket_can_accept(listener) > 0) {
+	if(socket_can_accept(listener) == true) {
 		socket_accept(listener, pool);
 	}
 
@@ -519,15 +519,15 @@ socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len) {
 		return 0;
 	}
 
-	if(socket_can_read(s) > 0) {
+	if(socket_is_readable(s) == true) {
 		return socket_read(s, buf, len);
 	}
 
 	return 0;
 }
 
-uint32_t
-socket_can_read(socket_t __in *s) {
+bool
+socket_is_readable(socket_t __in *s) {
 	fd_set rs;
 
 	if(s == 0) {
@@ -539,7 +539,7 @@ socket_can_read(socket_t __in *s) {
 	FD_ZERO(&rs);
 	FD_SET(s->handle, &rs);
 
-	return select(s->handle + 1, &rs, NULL, NULL, &s->timeout);
+	return select(s->handle + 1, &rs, NULL, NULL, &s->timeout) > 0 ? true : false;
 }
 
 void
@@ -591,13 +591,13 @@ socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 		return;
 	}
 
-	if(socket_can_write(s) > 0) {
+	if(socket_is_writeable(s) == true) {
 		socket_write(s, buf, len);
 	}
 }
 
-uint32_t
-socket_can_write(socket_t __in *s) {
+bool
+socket_is_writeable(socket_t __in *s) {
 	fd_set ws;
 
 	if(s == 0) {
@@ -609,7 +609,7 @@ socket_can_write(socket_t __in *s) {
 	FD_ZERO(&ws);
 	FD_SET(s->handle, &ws);
 
-	return select(s->handle + 1, NULL, &ws, NULL, &s->timeout);
+	return select(s->handle + 1, NULL, &ws, NULL, &s->timeout) > 0 ? true : false;
 }
 
 bool
