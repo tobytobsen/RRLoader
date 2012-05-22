@@ -212,13 +212,11 @@ uint32_t
 socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
 
 /**
- * socket_async_read() is the asynchronous version of socket_read()
+ * socket_is_readable() detects if the socket is readable
  *
  * @param s socket handle
- * @param buf data storage
- * @param len size of the storage
  *
- * @return returns bytes read
+ * @return returns true if readable
 */
 bool
 socket_is_readable(socket_t __in *s);
@@ -243,6 +241,13 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 
+/**
+ * socket_is_writeable() detects if the socket is writeable
+ *
+ * @param s socket handle
+ *
+ * @return returns true if writeable
+*/
 bool
 socket_is_writeable(socket_t __in *s);
 
