@@ -4,6 +4,24 @@
 #include <string.h>
 #include <ctype.h>
 
+uint32_t
+get_chunk_size(http_con_t *h) {
+	char buf[32] = {0}, buff[32], *b;
+	uint32_t o = 0, len = 0;
+
+	if(h == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return 0;
+	}
+
+	while(NULL == strstr(buf, LIBNET_HTTP_DEL) && o < 32) {
+		socket_read(&h->handle, buf+o++, 1);
+	}
+
+	sprintf(buf, "%d", strtol(buf, NULL, 16));
+	return atoi(buf);
+}
+
 const char *
 get_method_str(http_method_t m) {
 	switch(m) {
@@ -43,26 +61,30 @@ build_request(http_con_t *h, http_request_t *req) {
 		// ..
 	}
 
-	snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s %s %s\r\n", 
+	snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s %s %s%s", 
 		get_method_str(req->method),
 		req->path,
-		get_version_str(h->version));
+		get_version_str(req->version),
+		LIBNET_HTTP_DEL);
 
 	if(req->header.entities > 0 && req->header.entity != 0) {
 		uint32_t i=0;
 
 		for(i=0; i<req->header.entities; i++) {
-			snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s: %s\r\n",
-				buf, req->header.entity[i].key, req->header.entity[i].value);
+			snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s: %s%s",
+				buf, req->header.entity[i].key, req->header.entity[i].value,
+				LIBNET_HTTP_DEL);
 		}
 	}
 
-	snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s\r\n", buf);
+	snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s", buf, LIBNET_HTTP_DEL);
+
+//	printf("%s\n",buf);
 	return buf;
 }
 
 void
-parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
+parse_response(http_con_t *h, http_request_t *req, http_response_t *res, char *buf, uint32_t len) {
 	char *tmp;
 	uint32_t tmplen;
 
@@ -71,10 +93,11 @@ parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
 		return;
 	}
 
-	tmp = (char*)get_version_str(h->version);
+	tmp = (char*)get_version_str(req->version);
 	tmplen = strlen(tmp);
 
 	if(buf != strstr(buf, tmp)) {
+		//printf("%d\n", req->version);
 		return; // malformed
 	}
 
@@ -84,6 +107,7 @@ parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
 	res->body = 0;
 
 	tmp = strtok(buf, LIBNET_HTTP_DEL);
+	
 	while(NULL != (tmp = strtok(NULL, LIBNET_HTTP_DEL))) {
 		http_header_ent_t he = {0};
 		char *del = strstr(tmp, ":") + 1;
@@ -152,7 +176,7 @@ http_disconnect(http_con_t __inout *h) {
 	}
 
 	socket_disconnect(&h->handle);
-	socket_release_socket(&h);
+	socket_release_socket(&h->handle);
 }
 
 void
@@ -179,6 +203,7 @@ http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_
 	r->id = ++rid;
 	r->sig = LIBNET_SIG_HTTP_REQUEST;
 	r->method = m;
+	r->version = ver;
 
 	strncpy(r->path, path, LIBNET_HTTP_SIZE_BUF);
 
@@ -226,9 +251,9 @@ http_request_set_callback(http_request_t *req, http_callback_t cbt, void *fp) {
 /* doesn't seem to read everything.. */
 void
 http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t __inout *res) {
-	char *buf, chunk[LIBNET_HTTP_SIZE_REQ] = {0};
+	char *buf, chunk[LIBNET_HTTP_SIZE_REQ] = {0}, *tmp;
 	uint32_t chunks = 1, o = 0;
-	int len;
+	int len, to_read = 0;
 	char c;
 
 	if(h == 0 || req == 0 || res == 0) {
@@ -249,8 +274,8 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 
 	socket_write(&h->handle, buf, strlen(buf));		/* <- 	*/
 	free(buf);										/* <- 	*/
-	
-	while(0 != (len = socket_read(&h->handle, &c, 1))) {
+
+	while(0 != socket_read(&h->handle, &c, 1)) {
 		chunk[o++] = c;
 
 		if(strstr(chunk, LIBNET_HTTP_EOH)) {
@@ -262,7 +287,20 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		}
 	}
 
-	parse_response(h, res, chunk, o);
+	parse_response(h, req, res, chunk, o);
+
+	/* check the way the server sends data */
+	if(NULL != (tmp = http_header_get_value_by_name(res, "transfer-encoding"))) {
+		if(!strcmp(tmp, "chunked")) {
+			to_read = get_chunk_size(h);
+		}
+	} else if(NULL != (tmp = http_header_get_value_by_name(res, "content-length"))) {
+		to_read = atoi(tmp);
+	} else {
+		return; // not supported
+	}
+
+	printf("chunk size: %d\r\n", to_read);
 	
 	if(req->cb.read == NULL) {
 		buf = calloc(1, LIBNET_HTTP_SIZE_REQ);
@@ -278,8 +316,12 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		buf = NULL;
 	}
 
-	while(true == socket_is_readable(&h->handle)) {
-		len = socket_read(&h->handle, chunk, LIBNET_HTTP_SIZE_REQ);
+	while(/*true == socket_is_readable(&h->handle)*/to_read > 0) {
+		len = LIBNET_HTTP_SIZE_REQ < to_read ? LIBNET_HTTP_SIZE_REQ : to_read;
+		len = socket_read(&h->handle, chunk, len);
+
+		//printf("to_read: %d\n", to_read);
+		to_read -= len;
 
 		if(buf != NULL) {
 			if((o+len) >= (chunks * LIBNET_HTTP_SIZE_REQ)) {
@@ -297,6 +339,15 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		} else {
 			req->cb.read(req->id, chunk, len);
 		}
+
+		/* check, if there is data to read */
+		if(to_read <= 0 && socket_is_readable(&h->handle)) {
+			to_read = get_chunk_size(h);
+
+			if(to_read == 0) {
+				break;
+			}
+		}
 	}
 
 //	if(buf != NULL) {
@@ -310,9 +361,25 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 }
 
 void
-http_header_set_kv_pair(void __inout *r, const char __in *k, const char __in *v) {
+http_header_set_kv_pair(void __inout *r, char __in *k, char __in *v) {
 	http_header_ent_t *ent;
 	http_header_t *header;
+
+	char *strtolower(char *str) {
+		uint16_t i=0;
+		static char lstr[LIBNET_HTTP_SIZE_REQ] = {0};
+		char *tmp = (char *)lstr; // tmp as str directly will result in a bus error 
+
+		if(strlen(str) >= LIBNET_HTTP_SIZE_REQ) {
+			return NULL;
+		}
+
+		for(i=0; i<LIBNET_HTTP_SIZE_REQ || str[i] == 0; i++) {
+			lstr[i] = tolower(str[i]);
+		}
+
+		return lstr;
+	}
 
 	if(r == 0 || k == 0 || v == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
@@ -344,9 +411,9 @@ http_header_set_kv_pair(void __inout *r, const char __in *k, const char __in *v)
 	}
 
 	ent = &header->entity[header->entities++];
-	strncpy(ent->key, k, LIBNET_HTTP_SIZE_BUF);
-	strncpy(ent->value, v, LIBNET_HTTP_SIZE_BUF);
-	ent->key[0] = tolower(ent->key[0]);
+
+	strncpy(ent->key, strtolower(k), LIBNET_HTTP_SIZE_BUF);
+	strncpy(ent->value, strtolower(v), LIBNET_HTTP_SIZE_BUF);
 }
 
 const char *
@@ -367,6 +434,8 @@ http_header_get_value_by_name(void __inout *r, const char __in *name) {
 		case LIBNET_SIG_HTTP_REQUEST: {
 			h = &((http_request_t *)(r))->header;
 		} break;
+
+		default: return NULL;
 	}
 
 	for(i=0; i<h->entities; i++) {
