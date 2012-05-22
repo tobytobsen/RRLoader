@@ -24,15 +24,14 @@ $bin = find_php($ini);
 $doc = realpath(__DIR__ . '/..');
 
 list ($host, $port) = get_args($ini);
-
-if (!$host) 
-  $host = 'localhost';
-
-if (!$port || $port <= 1023)
-  $port = 8088;
-
+  
+if (!$host) $host = 'localhost';
+if (!$port || $port <= 1023) $port = 8088;
+  
 print <<<END_INFO
-Starting server at $host:$port
+
+
+Starting Webserver at $host:$port
 Document-Root is: $doc
 
 You can now access the WebUI via:
