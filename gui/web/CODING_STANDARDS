@@ -1,0 +1,158 @@
+Namensräume..............: lowercase. Vermeide mehrere Wörter zwischen "\". 
+                           Verwende Unterstriche wenn nötig.
+                           
+Wurzelnamensraum ist immer der des aktuellen Projekts "rrl".
+Externe Klassen und Funktionen SOLLTEN in den Namensraum "ext".
+
+Der globale Namensraum SOLLTE vermieden werden.
+
+Klassen..................: UpperCamelCase
+
+Public Methoden..........: camelCase
+Protected Metoden........: camelCase
+Private Methoden.........: _camelCase
+
+Public Eigenschaften.....: camelCase
+Protected Eigenschaften..: camelCase
+Private Eigenschaften....: _camelCase
+
+Funktionen...............: lowercase mit Unterstrich zwischen Wörtern.
+Lokale Variablen.........: lowercase mit Unterstrich zwischen Wörtern.
+
+Konstanten...............: UPPERCASE mit Unterstrich zwischen Wörtern.
+
+---------------------------------------------------------------------------------
+
+Verwende K&R (im Java-Style) <http://de.wikipedia.org/wiki/Indent_Style#Variation:_Java_.2F_Sun>.
+Tabbreite ist 2 Leerzeichen. Vermeide Tabulatoren.
+
+Maximale empfohlene Zeilenlänge ist 100.
+
+1. Immer ein Leerzeichen zwischen Zuweisungen/Vergleichen/Attributen, sowie
+   vor und nach '[' und ']' wenn es sich um einen Array-Literal handelt.
+---------------------------------------------------------------------------
+
+  Gut:
+  'for ($i = 0; $i < 100; $i++)'
+  '$name = "max"'
+  '$array = [ "first", "second", "named" => "cool" ]'
+
+  Schlecht:
+  'for($i=0; $i<100; $i++)'
+  '$name="max"'
+  '$array = ["first","second","named" => "cool"]'
+  
+
+2. Keine Leerzeichen vor und nach Funktionsparametern und Arrayzugriff.
+-----------------------------------------------------------------------
+
+  Gut:
+  'some_function(1, 2, 3)'
+  '$my_array["foo"] = "bar"'
+  '$my_array[] = "baz"'
+
+  Schlecht:
+  'some_function( 1, 2, 3 )'
+  '$my_array[ "foo" ] = "bar"'
+  '$my_array [ ] = "baz"'
+  
+  
+3. Die öffnende Klammer '{' bei Methoden und Klassen in eine neue Zeile.
+------------------------------------------------------------------------
+
+  class MyClass
+  {
+    // ....
+      
+    public function myMethod()
+    {
+      
+    }
+      
+  }
+  
+  
+4. Die öffnende Klammer '{' bei Funktionen in die selbe Zeile.
+--------------------------------------------------------------
+
+  function my_function() {
+    // stuff
+  }
+  
+  
+5. Wenn deine Funktion zu viele Parameter für eine Zeile erwartet:
+------------------------------------------------------------------
+  
+  function my_function($very_long_name_snkdkjdkjdkj,
+                       $very_long_name_dfmdfkjkfjfff,
+                       $very_long_name_asddfghjhgfdfgf) {
+    // code
+  }  
+
+  
+6. Wenn eine IF Abfrage zuviele Ausdrücke für eine Zeile benötigt:
+------------------------------------------------------------------
+
+  if (__ausdruck1__
+   && __ausdruck2__
+   || __ausdruck3__) {
+    // code
+  
+  } elseif (__ausdruck1__
+         && __ausdruck2__
+         || __ausdruck3__) {
+    // code
+    
+  }
+  
+  
+7. Closures/callbacks und optionale Werte immer als letzte Parameter definieren:
+--------------------------------------------------------------------------------
+
+  Gut:
+  'my_function("foo", function() {
+    // stuff
+  })'
+  
+  Bei mehr als einem Parameter vor dem callback:
+  'my_function("foo", "bar"
+    function() {
+      // stuff
+    }
+  )'
+  
+  Schlecht:
+  'my_function("foo", function() {
+    // stuff
+  }, "bar")'
+  
+  
+8. CASE immer mittels Tab einrücken:
+------------------------------------
+  
+  switch (1234) {
+    case 123:
+      // code
+      break;
+      
+    case 456:
+      // code
+      break;
+      
+    default:
+      // code
+  }
+  
+  
+9. GOTO labels immer in den aktuellen Fluss einfügen und nicht an den Anfang der Zeile setzen.
+----------------------------------------------------------------------------------------------
+
+  function foo() {
+    if (1234) {
+      label:
+      return true;
+    }
+    
+    goto label;
+  }
+ 
