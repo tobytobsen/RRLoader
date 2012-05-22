@@ -389,7 +389,7 @@ socket_disconnect(socket_t __inout *s) {
 }
 
 bool
-socket_accept(socket_t __in *listener, socket_pool_t __inout *set) {
+socket_accept(socket_t __in *listener, socket_pool_t __inout *pool) {
 	int ret = 0;
 
 	if(listener == 0) {
@@ -446,30 +446,25 @@ socket_accept(socket_t __in *listener, socket_pool_t __inout *set) {
 		cl.handle = ret;
 
 		/* where to store? */
-		socket_set_add_socket(set, &cl);
+		socket_pool_add_socket(pool, &cl);
 	}
 
 	return ret;
 }
 
 bool
-socket_async_accept(socket_t __in *listener, socket_pool_t __inout *set) {
-	fd_set rs;
-
-	if(listener == 0 || set == 0) {
+socket_async_accept(socket_t __in *listener, socket_pool_t __inout *pool) {
+	if(listener == 0 || pool == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return false;
 	}
 
-	FD_ZERO(&rs);
-	FD_SET(listener->handle, &rs);
-
-	if(select(listener->handle + 1, &rs, NULL, NULL, &listener->timeout) > 0) {
-		return socket_accept(listener, set);
+	if(socket_can_accept(listener) > 0) {
+		socket_accept(listener, pool);
 	}
 
-	return 0;
+	return false;
 }
 
 uint32_t
@@ -501,15 +496,11 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 			} break;
 
 			case LIBNET_ENC_NONE: {
-				ret = recv(s->handle, buf, len-1, 0);
+				ret = recv(s->handle, buf, len, 0);
 			} break;
 		}
 	} else if(s->proto == LIBNET_PROTOCOL_UDP) {
 		ret = recvfrom(s->handle, buf, len, 0, info, &infolen);
-	}
-
-	if(ret > 0) {
-		buf[ret] = 0;
 	}
 
 	if(ret < 0) {
@@ -517,15 +508,29 @@ socket_read(socket_t __in *s, uint8_t __out *buf, uint32_t len) {
 		return 0;
 	}
 
-
 	return ret;
 }
 
 uint32_t
 socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len) {
+	if(s == 0 || s->handle == 0 || buf == 0) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+
+		return 0;
+	}
+
+	if(socket_can_read(s) > 0) {
+		return socket_read(s, buf, len);
+	}
+
+	return 0;
+}
+
+uint32_t
+socket_can_read(socket_t __in *s) {
 	fd_set rs;
 
-	if(s == 0 || s->handle == 0 || buf == 0) {
+	if(s == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return 0;
@@ -534,11 +539,7 @@ socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len) {
 	FD_ZERO(&rs);
 	FD_SET(s->handle, &rs);
 
-	if(select(s->handle + 1, &rs, NULL, NULL, &s->timeout) > 0) {
-		return socket_read(s, buf, len);
-	}
-
-	return 0;
+	return select(s->handle + 1, &rs, NULL, NULL, &s->timeout);
 }
 
 void
@@ -584,9 +585,22 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
+	if(s == 0 || s->handle == 0 || buf == 0) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+
+		return;
+	}
+
+	if(socket_can_write(s) > 0) {
+		socket_write(s, buf, len);
+	}
+}
+
+uint32_t
+socket_can_write(socket_t __in *s) {
 	fd_set ws;
 
-	if(s == 0 || s->handle == 0 || buf == 0) {
+	if(s == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return;
@@ -595,9 +609,7 @@ socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 	FD_ZERO(&ws);
 	FD_SET(s->handle, &ws);
 
-	if(select(s->handle + 1, NULL, &ws, NULL, &s->timeout) > 0) {
-		socket_write(s, buf, len);
-	}
+	return select(s->handle + 1, NULL, &ws, NULL, &s->timeout);
 }
 
 bool

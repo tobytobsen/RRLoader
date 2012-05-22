@@ -112,6 +112,7 @@ typedef union ip {
 typedef uint16_t 	port_t;
 
 #define socket_set_timeout(s, t) socket_set_param((s), LIBNET_P_TIMEOUT, ((void *)(&t)))
+#define socket_can_accept(s) socket_can_read((s))
 
 /**
  * socket_create_socket() creates a socket handle of given protocol and IP version 
@@ -173,7 +174,7 @@ socket_disconnect(socket_t __inout *s);
  * @return returns true if a client connected
 */
 bool
-socket_accept(socket_t __in *listener, struct socket_pool __inout *set);
+socket_accept(socket_t __in *listener, struct socket_pool __inout *pool);
 
 /**
  * socket_async_accept() is the asynchronous version of socket_accept()
@@ -184,7 +185,7 @@ socket_accept(socket_t __in *listener, struct socket_pool __inout *set);
  * @return returns true if a client connected
 */
 bool
-socket_async_accept(socket_t __in *listener, struct socket_pool __inout *set);
+socket_async_accept(socket_t __in *listener, struct socket_pool __inout *pool);
 
 /**
  * socket_read() reads from a socket
@@ -210,6 +211,9 @@ socket_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
 uint32_t
 socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
 
+uint32_t
+socket_can_read(socket_t __in *s);
+
 /**
  * socket_write() writes to a socket
  *
@@ -229,6 +233,9 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
 */
 void
 socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
+
+uint32_t
+socket_can_write(socket_t __in *s);
 
 /**
  * socket_set_encryption() is used to configure the socket for SSL or TLS
