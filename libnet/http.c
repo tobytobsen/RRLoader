@@ -300,7 +300,7 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		return; // not supported
 	}
 
-	printf("chunk size: %d\r\n", to_read);
+//	printf("chunk size: %d\r\n", to_read);
 	
 	if(req->cb.read == NULL) {
 		buf = calloc(1, LIBNET_HTTP_SIZE_REQ);
