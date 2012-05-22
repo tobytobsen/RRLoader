@@ -2,6 +2,7 @@
 #include <net/http.h>
 
 #include <string.h>
+#include <ctype.h>
 
 const char *
 get_method_str(http_method_t m) {
@@ -32,6 +33,11 @@ build_request(http_con_t *h, http_request_t *req) {
 	}
 
 	buf = calloc(1, LIBNET_HTTP_SIZE_REQ);
+
+	if(buf == NULL) {
+		libnet_error_set(LIBNET_E_MEM);
+		return buf;
+	}
 
 	if(req->form != NULL) {
 		// ..
@@ -65,7 +71,7 @@ parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
 		return;
 	}
 
-	tmp = get_version_str(h->version);
+	tmp = (char*)get_version_str(h->version);
 	tmplen = strlen(tmp);
 
 	if(buf != strstr(buf, tmp)) {
@@ -140,23 +146,19 @@ http_connect(http_con_t __inout *h, const char __in *url) {
 
 void
 http_disconnect(http_con_t __inout *h) {
-	if(h == 0) {
+	if(h == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
 	}
 
 	socket_disconnect(&h->handle);
-	socket_release_socket(&h->handle);
-
-	if(h->last_response != 0) {
-		if(h->last_response->body != 0) {
-			free(h->last_response->body);
-		}
-	}
+	socket_release_socket(&h);
 }
 
 void
 http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_t ver, http_method_t m, const char __in *path) {
+	static uint32_t rid = 0;
+
 	if(h == 0 || r == 0 || path == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
@@ -174,6 +176,7 @@ http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_
 
 	memset(r, 0, sizeof(http_request_t));
 	
+	r->id = ++rid;
 	r->sig = LIBNET_SIG_HTTP_REQUEST;
 	r->method = m;
 
@@ -200,13 +203,33 @@ http_request_release(http_request_t __inout *r) {
 
 		free(r->form);
 	}
+
+	if(r->res.body != NULL) {
+		free(r->res.body);
+	}
 }
 
 void
+http_request_set_callback(http_request_t *req, http_callback_t cbt, void *fp) {
+	if(cbt >= LIBNET_HTTP_CBT_NONE || fp == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}
+
+	switch(cbt) {
+		case LIBNET_HTTP_CBT_READ: {
+			req->cb.read = (http_cb_read_t)fp;
+		} break;
+	}
+}
+
+/* doesn't seem to read everything.. */
+void
 http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t __inout *res) {
-	char *buf, chunk[LIBNET_HTTP_SIZE_REQ];
+	char *buf, chunk[LIBNET_HTTP_SIZE_REQ] = {0};
 	uint32_t chunks = 1, o = 0;
 	int len;
+	char c;
 
 	if(h == 0 || req == 0 || res == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
@@ -215,32 +238,74 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 
 	mutex_acquire(&h->mtx_re);
 
-	if(h->last_response != 0) {
-		if(h->last_response->body != 0) {
-			free(h->last_response->body);
+	memset(res, 0, sizeof(http_response_t));
+
+	/* bad 												 	*/
+	buf = build_request(h, req); 					/* <- 	*/
+
+	if(buf == NULL) {								/* <- 	*/
+		return;										/* <- 	*/
+	}												/* <- 	*/
+
+	socket_write(&h->handle, buf, strlen(buf));		/* <- 	*/
+	free(buf);										/* <- 	*/
+	
+	while(0 != (len = socket_read(&h->handle, &c, 1))) {
+		chunk[o++] = c;
+
+		if(strstr(chunk, "\r\n\r\n")) {
+			break;
 		}
 
-		h->last_response = 0;
+		if(o == LIBNET_HTTP_SIZE_REQ) {
+			return; // failure, header is supposed to be <4096 bytes
+		}
 	}
 
-	buf = build_request(h, req);
-	socket_write(&h->handle, buf, strlen(buf));
+	parse_response(h, res, chunk, o);
+	
+	if(req->cb.read == NULL) {
+		buf = calloc(1, LIBNET_HTTP_SIZE_REQ);
 
-	/* todo: read until header end, then parse response and continue */
-	while(0 != (len = socket_read(&h->handle, chunk, LIBNET_HTTP_SIZE_REQ))) {
-		if(o >= (chunks * LIBNET_HTTP_SIZE_REQ)) {
-			buf = realloc(buf, ++chunks * LIBNET_HTTP_SIZE_REQ);
-			o = (chunks-1) * LIBNET_HTTP_SIZE_REQ;
+		if(buf == NULL) {
+			libnet_error_set(LIBNET_E_MEM);
+			return;
 		}
 
-		strncpy(buf + o, chunk, LIBNET_HTTP_SIZE_REQ);
-		o += LIBNET_HTTP_SIZE_REQ;
+		res->body = buf;
+		o = 0;
+	} else {
+		buf = NULL;
 	}
 
-	parse_response(h, res, buf, strlen(buf));
-	free(buf);
+	while(true == socket_is_readable(&h->handle)) {
+		len = socket_read(&h->handle, chunk, LIBNET_HTTP_SIZE_REQ);
 
-	h->last_response = res;
+		if(buf != NULL) {
+			if((o+len) >= (chunks * LIBNET_HTTP_SIZE_REQ)) {
+				buf = realloc(buf, (++chunks * LIBNET_HTTP_SIZE_REQ));
+				res->body = buf;
+
+				if(buf == NULL) {
+					libnet_error_set(LIBNET_E_MEM);
+					return;
+				}
+			}
+
+			memcpy(buf + o, chunk, len);
+			o += len;
+		} else {
+			req->cb.read(req->id, chunk, len);
+		}
+	}
+
+//	if(buf != NULL) {
+//		buf[o] = 0;
+//	}
+
+	memcpy(&req->res, res, sizeof(http_response_t));
+
+	h->last_request = req;
 	mutex_release(&h->mtx_re);
 }
 
@@ -291,7 +356,7 @@ http_header_get_value_by_name(void __inout *r, const char __in *name) {
 
 	if(r == 0 || name == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
-		return;
+		return NULL;
 	}	
 
 	switch(*(uint8_t *)(r)) {

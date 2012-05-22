@@ -85,17 +85,6 @@ typedef struct http_header {
 	http_header_ent_t *entity;
 } http_header_t;
 
-typedef struct http_request {
-	uint8_t sig;
-
-	http_header_t header;
-	http_method_t method;
-
-	http_form_t  *form;
-
-	char path[LIBNET_HTTP_SIZE_BUF];
-} http_request_t;
-
 typedef struct http_response {
 	uint8_t sig;
 
@@ -105,6 +94,31 @@ typedef struct http_response {
 	char *body;
 } http_response_t;
 
+typedef enum http_callback {
+	LIBNET_HTTP_CBT_READ = 0,
+	LIBNET_HTTP_CBT_NONE,
+} http_callback_t;
+
+typedef void (*http_cb_read_t) (uint32_t rid, char *data, uint32_t len);
+
+typedef struct http_request {
+	uint8_t sig;
+	uint32_t id;
+
+	struct {
+		http_cb_read_t read;
+	} cb;
+
+	http_response_t res;
+
+	http_header_t header;
+	http_method_t method;
+
+	http_form_t  *form;
+
+	char path[LIBNET_HTTP_SIZE_BUF];
+} http_request_t;
+
 typedef struct http_connection {
 	socket_t handle;
 	char session[LIBNET_HTTP_SIZE_BUF];
@@ -112,7 +126,7 @@ typedef struct http_connection {
 	http_version_t version;
 	struct url url;
 
-	http_response_t *last_response;
+	http_request_t *last_request;
 
 	mutex_t mtx_re;
 } http_con_t;
@@ -155,6 +169,16 @@ http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_
 */
 void
 http_request_release(http_request_t __inout *r);
+
+/**
+ * http_request_set_callback() sets callback
+ *
+ * @param req request
+ * @param cbt callback type
+ * @param fp function pointer
+*/
+void
+http_request_set_callback(http_request_t *req, http_callback_t cbt, void *fp);
 
 /**
  * http_request_exec() executes a http request
