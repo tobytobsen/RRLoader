@@ -138,6 +138,7 @@ htbl_remove(htbl_t *tbl, uint8_t *key) {
 
 	if(i != tbl->entities) {
 		memset(tbl->entity[i].hash, 0, LIBNET_HASH_SIZE);
+		tbl->entities--;
 	}
 }
 
