@@ -166,3 +166,49 @@ htbl_get(htbl_t *tbl, uint8_t *key) {
 
 	return NULL;
 }
+
+bool
+htbl_empty(htbl_t *tbl) {
+	if(tbl == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return false;
+	}
+
+	return (tbl->entities > 0);
+}
+
+uint32_t
+htbl_size(htbl_t *tbl) {
+	if(tbl == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return 0;
+	}
+
+	return tbl->entities;
+}
+
+void *
+htbl_enumerate(htbl_t *tbl, uint32_t *i) {
+	if(tbl == NULL || i == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return NULL;
+	}
+
+	if(*i == tbl->entities) {
+		return NULL;
+	}
+
+	if(*i > tbl->entities) {
+		*i = 0;
+	}
+
+	for(*i; *i<tbl->entities; *i++) {
+		if(!memcmp(tbl->entity[*i].hash, 
+			(char[LIBNET_HASH_SIZE]){0}, 
+			LIBNET_HASH_SIZE)) {
+			continue;
+		}
+
+		return tbl->entity[*i].data;
+	}
+}

@@ -46,4 +46,10 @@ htbl_remove(htbl_t *tbl, uint8_t *key);
 void *
 htbl_get(htbl_t *tbl, uint8_t *key);
 
+bool
+htbl_empty(htbl_t *tbl);
+
+void *
+htbl_enumerate(htbl_t *tbl, uint32_t *i);
+
 #endif /* LIBNET_HASHTBL_H_ */
