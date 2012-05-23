@@ -19,6 +19,10 @@ shared:
 	@echo Shared Library is not supported yet
 
 test: static
+	$(CC) $(CFLAGS) $(LDFLAGS) tests/btree.c -o tests/btree.test -L"bin"
+
+	$(CC) $(CFLAGS) $(LDFLAGS) tests/hash_table.c -o tests/hash_table.test -L"bin"
+
 	$(CC) $(CFLAGS) $(LDFLAGS) tests/tcp_client_sync.c -o tests/tcp_client_sync.test -L"bin"
 	
 	$(CC) $(CFLAGS) $(LDFLAGS) tests/tcp_ipv6_client_sync.c -o tests/tcp_ipv6_client_sync.test -L"bin"
