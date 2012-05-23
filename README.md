@@ -12,8 +12,8 @@ Grafiker für die GUI in Windows und Co., sowie für die WebUI
 
 Pfad: `/res/ui/web`, `/res/ui/sys`
 
-## droptable (murdoc)
-Programmierer für die WebUI 
+## droptable (murdoc), occami (Chieftrain), rush
+Programmierer und Designer für die WebUI 
 
 Pfad: `/gui/web`
 
