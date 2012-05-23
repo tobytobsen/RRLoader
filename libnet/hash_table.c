@@ -9,7 +9,19 @@
 #include <stdlib.h>
 
 bool
+htbl_hash_gen_plain(uint8_t *hash, uint8_t *key) {
+	if(hash == NULL || key == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return false;
+	}
+
+	strncpy((char *)hash, (char *)key, LIBNET_HASH_SIZE);
+	return true;
+}
+
+bool
 htbl_hash_gen_md5(uint8_t *hash, uint8_t *key) {
+	// printf("ASDASD\n");
 	if(hash == NULL || key == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return false;
@@ -62,6 +74,14 @@ htbl_release(htbl_t *tbl) {
 	}
 
 	if(tbl->entity != NULL) {
+		uint32_t i=0;
+
+		for(i; i<tbl->entities; i++) {
+			if(tbl->entity[i].data != NULL) {
+				free(tbl->entity[i].data);
+			}
+		}
+
 		free(tbl->entity);
 		tbl->entity = NULL;
 	}
@@ -80,7 +100,7 @@ htbl_set_hash_generator(htbl_t *tbl, htbl_hash_gen_t gen) {
 }
 
 void
-htbl_insert(htbl_t *tbl, uint8_t *key, void *data) {
+htbl_insert(htbl_t *tbl, uint8_t *key, void *data, uint32_t size) {
 	uint32_t i;
 
 	if(tbl == NULL || key == NULL/* || data == NULL*/) {
@@ -116,7 +136,15 @@ htbl_insert(htbl_t *tbl, uint8_t *key, void *data) {
 		return;
 	}
 
-	tbl->entity[i].data = data;
+	tbl->entity[i].data = calloc(1, size);
+
+	if(tbl->entity[i].data == NULL) {
+		libnet_error_set(LIBNET_E_MEM);
+		return;
+	}
+
+	memcpy(tbl->entity[i].data, data, size);
+	tbl->entity[i].size = size;
 }
 
 void
@@ -138,6 +166,12 @@ htbl_remove(htbl_t *tbl, uint8_t *key) {
 
 	if(i != tbl->entities) {
 		memset(tbl->entity[i].hash, 0, LIBNET_HASH_SIZE);
+
+		if(tbl->entity[i].data != NULL) {
+			free(tbl->entity[i].data);
+			tbl->entity[i].data = NULL;
+		}
+
 		tbl->entities--;
 	}
 }
@@ -147,13 +181,18 @@ htbl_get(htbl_t *tbl, uint8_t *key) {
 	uint32_t i;
 	uint8_t hash[LIBNET_HASH_SIZE] = {0};
 
+	// printf("key: %s\n", key);
+
 	if(false == tbl->gen(hash, key)) {
+		// printf(":-/\n");
 		return NULL;
 	}
 
+	// printf("key: %s\n", key);
+
 	if(tbl == NULL || key == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
-		return;
+		return NULL;
 	}
 
 	for(i=0; i<tbl->entities; i++) {
@@ -174,7 +213,7 @@ htbl_empty(htbl_t *tbl) {
 		return false;
 	}
 
-	return (tbl->entities > 0);
+	return (tbl->entities == 0);
 }
 
 uint32_t
@@ -188,7 +227,7 @@ htbl_size(htbl_t *tbl) {
 }
 
 void *
-htbl_enumerate(htbl_t *tbl, uint32_t *i) {
+htbl_enumerate(htbl_t *tbl, uint32_t *i, uint8_t **hash, void **data) {
 	if(tbl == NULL || i == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return NULL;
@@ -202,13 +241,24 @@ htbl_enumerate(htbl_t *tbl, uint32_t *i) {
 		*i = 0;
 	}
 
-	for(*i; *i<tbl->entities; *i++) {
+	for(*i; *i<tbl->entities; *i += 1) {
+
 		if(!memcmp(tbl->entity[*i].hash, 
 			(char[LIBNET_HASH_SIZE]){0}, 
 			LIBNET_HASH_SIZE)) {
 			continue;
 		}
 
-		return tbl->entity[*i].data;
+		if(hash != NULL) {
+			*hash = tbl->entity[*i].hash;
+		}
+
+		if(data != NULL) {
+			*data = tbl->entity[*i].data;
+		}
+
+		*i += 1;
+
+		return tbl->entity[*i - 1].data;
 	}
 }
