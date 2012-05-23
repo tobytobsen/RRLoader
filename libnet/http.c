@@ -72,7 +72,6 @@ build_request(http_con_t *h, http_request_t *req) {
 		http_header_ent_t *e;
 
 		while(NULL != htbl_enumerate(&req->header.tbl, &i, NULL, (void **)&e)) {
-			printf("e(0x%x): %s -> %s\n", e, e->key, e->value);
 			snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s: %s%s",
 				buf, e->key, e->value,
 				LIBNET_HTTP_DEL);
