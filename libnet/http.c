@@ -57,34 +57,37 @@ build_request(http_con_t *h, http_request_t *req) {
 		return buf;
 	}
 
-	if(req->form != NULL) {
+	if(htbl_empty(&req->form.tbl) == false) {
 		// ..
 	}
 
 	snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s %s %s%s", 
 		get_method_str(req->method),
 		req->path,
-		get_version_str(req->version),
+		get_version_str(h->version),
 		LIBNET_HTTP_DEL);
 
-	if(req->header.entities > 0 && req->header.entity != 0) {
+	if(htbl_empty(&req->header.tbl) == false) {
 		uint32_t i=0;
+		http_header_ent_t *e;
 
-		for(i=0; i<req->header.entities; i++) {
+		while(NULL != htbl_enumerate(&req->header.tbl, &i, NULL, (void **)&e)) {
+			printf("e(0x%x): %s -> %s\n", e, e->key, e->value);
 			snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s: %s%s",
-				buf, req->header.entity[i].key, req->header.entity[i].value,
+				buf, e->key, e->value,
 				LIBNET_HTTP_DEL);
 		}
 	}
 
 	snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s", buf, LIBNET_HTTP_DEL);
 
-//	printf("%s\n",buf);
+	// printf("%s\n",buf);
+
 	return buf;
 }
 
 void
-parse_response(http_con_t *h, http_request_t *req, http_response_t *res, char *buf, uint32_t len) {
+parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
 	char *tmp;
 	uint32_t tmplen;
 
@@ -93,11 +96,11 @@ parse_response(http_con_t *h, http_request_t *req, http_response_t *res, char *b
 		return;
 	}
 
-	tmp = (char*)get_version_str(req->version);
+	tmp = (char*)get_version_str(h->version);
 	tmplen = strlen(tmp);
 
 	if(buf != strstr(buf, tmp)) {
-		//printf("%d\n", req->version);
+		//// printf("%d\n", h->version);
 		return; // malformed
 	}
 
@@ -105,6 +108,8 @@ parse_response(http_con_t *h, http_request_t *req, http_response_t *res, char *b
 	res->sig = LIBNET_SIG_HTTP_RESPONSE;
 	res->code = (http_response_code_t)(atoi(tmp));
 	res->body = 0;
+
+	htbl_create(&res->header.tbl, 0);
 
 	tmp = strtok(buf, LIBNET_HTTP_DEL);
 	
@@ -130,11 +135,16 @@ parse_response(http_con_t *h, http_request_t *req, http_response_t *res, char *b
 }
 
 bool
-http_connect(http_con_t __inout *h, const char __in *url) {
+http_connect(http_con_t __inout *h, const char __in *url, http_version_t ver) {
 	url_t purl;
 	bool ssl = false;
 
 	if(h == 0 || url == 0) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return false;
+	}
+
+	if(ver < LIBNET_HTTP_V1 || ver > LIBNET_HTTP_V2) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return false;
 	}
@@ -165,6 +175,8 @@ http_connect(http_con_t __inout *h, const char __in *url) {
 
 	memcpy(&h->url, &purl, sizeof(url_t));
 
+	h->version = ver;
+
 	return true;
 }
 
@@ -179,16 +191,21 @@ http_disconnect(http_con_t __inout *h) {
 	socket_release_socket(&h->handle);
 }
 
+/*void
+http_rules_set_rule(http_rules_t *rules, http_rule_t rule, void *val) {
+
+}
+
 void
-http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_t ver, http_method_t m, const char __in *path) {
+http_rules_remove_rule(http_rules_t *rules, http_rule_t rule) {
+
+}*/
+
+void
+http_request_create(http_con_t __in *h, http_request_t __inout *r, http_method_t m, const char __in *path) {
 	static uint32_t rid = 0;
 
 	if(h == 0 || r == 0 || path == 0) {
-		libnet_error_set(LIBNET_E_INV_ARG);
-		return;
-	}
-
-	if(ver < LIBNET_HTTP_V1 || ver > LIBNET_HTTP_V2) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
 	}
@@ -203,9 +220,11 @@ http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_
 	r->id = ++rid;
 	r->sig = LIBNET_SIG_HTTP_REQUEST;
 	r->method = m;
-	r->version = ver;
 
 	strncpy(r->path, path, LIBNET_HTTP_SIZE_BUF);
+
+	htbl_create(&r->header.tbl, 0);
+	htbl_create(&r->form.tbl, 0);
 
 	http_header_set_kv_pair(r, "host", h->url.host);
 }
@@ -217,17 +236,9 @@ http_request_release(http_request_t __inout *r) {
 		return;
 	}
 
-	if(r->header.entity != NULL) {
-		free(r->header.entity);
-	}
-
-	if(r->form != NULL) {
-		if(r->form->entity != NULL) {
-			free(r->form->entity);
-		}
-
-		free(r->form);
-	}
+	htbl_release(&r->header.tbl);
+	htbl_release(&r->form.tbl);
+	htbl_release(&r->res.header.tbl);
 
 	if(r->res.body != NULL) {
 		free(r->res.body);
@@ -287,7 +298,7 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		}
 	}
 
-	parse_response(h, req, res, chunk, o);
+	parse_response(h, res, chunk, o);
 
 	/* check the way the server sends data */
 	if(NULL != (tmp = http_header_get_value_by_name(res, "transfer-encoding"))) {
@@ -300,7 +311,7 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		return; // not supported
 	}
 
-//	printf("chunk size: %d\r\n", to_read);
+	// printf("chunk size: %d\r\n", to_read);
 	
 	if(req->cb.read == NULL) {
 		buf = calloc(1, LIBNET_HTTP_SIZE_REQ);
@@ -320,7 +331,7 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		len = LIBNET_HTTP_SIZE_REQ < to_read ? LIBNET_HTTP_SIZE_REQ : to_read;
 		len = socket_read(&h->handle, chunk, len);
 
-		//printf("to_read: %d\n", to_read);
+		//// printf("to_read: %d\n", to_read);
 		to_read -= len;
 
 		if(buf != NULL) {
@@ -362,7 +373,6 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 
 void
 http_header_set_kv_pair(void __inout *r, char __in *k, char __in *v) {
-	http_header_ent_t *ent;
 	http_header_t *header;
 
 	char *strtolower(char *str) {
@@ -398,27 +408,18 @@ http_header_set_kv_pair(void __inout *r, char __in *k, char __in *v) {
 		default: return; // invalid signature
 	}
 
-	if(header->entity == 0) {
-		header->entity = calloc(1, sizeof(http_header_ent_t));
-	} else {
-		header->entity = realloc(header->entity, 
-			sizeof(http_header_ent_t) * (header->entities + 1));
-	}
+	http_header_ent_t ent = {0};
 
-	if(header->entity == 0) {
-		//libnet_error_set(LIBNET_E_MEM);
-		return;
-	}
+	strncpy(ent.key, strtolower(k), LIBNET_HTTP_SIZE_BUF);
+	strncpy(ent.value, strtolower(v), LIBNET_HTTP_SIZE_BUF);
 
-	ent = &header->entity[header->entities++];
-
-	strncpy(ent->key, strtolower(k), LIBNET_HTTP_SIZE_BUF);
-	strncpy(ent->value, strtolower(v), LIBNET_HTTP_SIZE_BUF);
+	htbl_insert(&header->tbl, (uint8_t *)ent.key, &ent, sizeof(http_header_ent_t));
 }
 
 const char *
 http_header_get_value_by_name(void __inout *r, const char __in *name) {
 	http_header_t *h;
+	http_header_ent_t *e;
 	uint32_t i;
 
 	if(r == 0 || name == 0) {
@@ -438,10 +439,10 @@ http_header_get_value_by_name(void __inout *r, const char __in *name) {
 		default: return NULL;
 	}
 
-	for(i=0; i<h->entities; i++) {
-		if(!strcmp(h->entity[i].key, name)) {
-			return h->entity[i].value;
-		}
+	e = (http_header_ent_t *)htbl_get(&h->tbl, name);
+
+	if(e != NULL) {
+		return e->value;
 	}
 
 	return NULL;
