@@ -67,7 +67,7 @@ build_request(http_con_t *h, http_request_t *req, buffer_t *buf) {
 
 	buffer_write_formatted(buf, "%s", LIBNET_HTTP_DEL);
 
-	printf("Request: %s\n", buffer_get(buf));
+	//printf("Request: %s\n", buffer_get(buf));
 }
 
 void
