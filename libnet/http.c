@@ -412,7 +412,7 @@ http_header_set_kv_pair(void __inout *r, char __in *k, char __in *v) {
 	strncpy(ent.key, strtolower(k), LIBNET_HTTP_SIZE_BUF);
 	strncpy(ent.value, strtolower(v), LIBNET_HTTP_SIZE_BUF);
 
-	htbl_insert(&header->tbl, (uint8_t *)ent.key, &ent, sizeof(http_header_ent_t));
+	htbl_insert_copy(&header->tbl, (uint8_t *)ent.key, &ent, sizeof(http_header_ent_t));
 }
 
 const char *
@@ -449,6 +449,6 @@ http_header_get_value_by_name(void __inout *r, const char __in *name) {
 
 void
 http_request_add_form_entity(http_request_t __inout *r, const char __in *name, const char __in *body, http_mime_t mime) {
-
+	
 }
 
