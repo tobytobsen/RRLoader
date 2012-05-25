@@ -52,3 +52,5 @@ Kommt als Plugin in Frage:
   Der User wählt Dateien aus, die er hochladen möchte. Das Programm erledigt den Rest, 
   d.h. sucht nen Pub aus der Liste, entfernt den Pub aus der Liste, taggt ihn, 
   lädt die Dateien hoch und erstellt die Datei.
+  
+#asdf
