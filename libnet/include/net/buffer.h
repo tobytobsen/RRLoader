@@ -49,6 +49,17 @@ bool
 buffer_create(buffer_t *b, buffer_mode_t mode);
 
 /**
+ * buffer_create_from_file() creates an file buffer with given path
+ *
+ * @param b buffer
+ * @param mode buffer mode
+ *
+ * @return returns true if successful, otherwise false is returned
+*/
+bool
+buffer_create_from_file(buffer_t *b, const char *path);
+
+/**
  * buffer_release() cleans up
  *
  * @param b buffer

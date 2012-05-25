@@ -87,6 +87,29 @@ buffer_create(buffer_t *b, buffer_mode_t mode) {
 	return true;
 }
 
+bool
+buffer_create_from_file(buffer_t *b, const char *path) {
+	if(b == NULL || path == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return false;
+	}
+
+	memset(b, 0, sizeof(buffer_t));
+
+	b->id = ++buffer_count;
+	b->chunk_size = LIBNET_BUFFER_CHUNK_SIZE;
+	b->mode = LIBNET_BUFFER_FILE;
+
+	b->fd = fopen(path, "w");
+
+	if(b->fd == NULL) {
+		libnet_error_set(LIBNET_E_BUFFER_FILE_BLOCKED);
+		return false;
+	}
+
+	return true;
+}
+
 void
 buffer_release(buffer_t *b) {
 	if(b == NULL) {
@@ -138,7 +161,7 @@ buffer_set_mode(buffer_t *b, buffer_mode_t mode) {
 			b->fd = fopen(tmp, "w");
 
 			if(b->fd == NULL) {
-				/* libnet_error_set(LIBNET_E_BUFFER_FILE_BLOCKED) */
+				libnet_error_set(LIBNET_E_BUFFER_FILE_BLOCKED)
 				return;
 			}
 
@@ -295,12 +318,15 @@ buffer_seek(buffer_t *b, uint32_t offset) {
 		case LIBNET_BM_FILE: {
 			if(0 != fseek(b->fd, offset, SEEK_SET)) {
 				return b->offset;
+			} else {
+				libnet_error_set(LIBNET_E_BUFFER_OFFSET_INVALID);
+				return b->offset;
 			}
 		} break;
 
 		case LIBNET_BM_MEMORY: {
 			if(buffer_size_total(b) < offset) {
-				/* libnet_error_set(LIBNET_E_BUFFER_OFFSET_INVALID); */
+				libnet_error_set(LIBNET_E_BUFFER_OFFSET_INVALID);
 				return b->offset;
 			}		
 		} break;
