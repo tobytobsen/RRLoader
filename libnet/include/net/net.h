@@ -8,6 +8,12 @@
 
 #include <types.h>
 
+#if defined(_WIN32) || defined(__WIN32__) || defined(_MSC_VER)
+# define WIN32
+#else
+# define NIX
+#endif
+
 #define LIBNET_UNSUPPORTED (unsigned int)(-1)
 
 /**
@@ -56,8 +62,12 @@ enum {
 	
 	/* INTERNAL */
 	LIBNET_E_SET_SIZE_EXCEEDED = 300,
+	LIBNET_E_MEM,
+	LIBNET_E_HASH_SIZE_EXCEEDED,
+	LIBNET_E_BUFFER_FILE_BLOCKED,
+	LIBNET_E_BUFFER_OFFSET_INVALID,
 
-	/* SSL */
+	/* SSL / Crypto */
 	LIBNET_E_ENC_SHUTDOWN = 400,
 	LIBNET_E_ENC_NEW,
 	LIBNET_E_ENC_CONNECT,
@@ -66,6 +76,7 @@ enum {
 	LIBNET_E_ENC_SSL_CA_CERT,
 	LIBNET_E_ENC_SSL_CERT,
 	LIBNET_E_ENC_SSL_KEY,
+	LIBNET_E_HASH_GEN,
 
 	/* PLATFORM */
 	LIBNET_E_W32_STARTUP = 500,
