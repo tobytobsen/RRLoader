@@ -165,6 +165,10 @@ buffer_copy(buffer_t *dst, buffer_t *src) {
 
 	uint32_t old_offset = buffer_size(src);
 
+	if(old_offset == 0) {
+		return;
+	}
+
 	buffer_seek(src, 0);
 	buffer_write(dst, 1, buffer_get(src), old_offset);
 	buffer_seek(src, old_offset);
@@ -295,7 +299,7 @@ buffer_write_formatted(buffer_t *b, const char *format, ...) {
 
 void
 buffer_write(buffer_t *b, uint32_t n, const char *data, uint32_t size) {
-	if(b == NULL || data == NULL || size == 0 || n != 0) {
+	if(b == NULL || data == NULL || size == 0 || n == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
 	}

@@ -5,7 +5,7 @@ TARGET=bin/libnet
 SRC=$(shell find . -depth 1 -name '*.[cS]')
 OBJ=$(addsuffix .o, $(subst %, %, $(basename $(SRC))))
 
-CFLAGS+= -I./include/ -I../include/ -I../ext/include -fnested-functions
+CFLAGS+= -I./include/ -I../include/ -I../ext/include -fnested-functions -ggdb
 LDFLAGS+= -lnet -lcrypto -lssl
 
 static: $(OBJ)
@@ -19,6 +19,8 @@ shared:
 	@echo Shared Library is not supported yet
 
 test: static
+	$(CC) $(CFLAGS) $(LDFLAGS) tests/buffer.c -o tests/buffer.test -L"bin"
+
 	$(CC) $(CFLAGS) $(LDFLAGS) tests/btree.c -o tests/btree.test -L"bin"
 
 	$(CC) $(CFLAGS) $(LDFLAGS) tests/hash_table.c -o tests/hash_table.test -L"bin"

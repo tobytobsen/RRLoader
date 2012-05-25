@@ -5,7 +5,7 @@
 
 void http_read(uint32_t rid, char *data, uint32_t len) {
 	printf("Request #%d: received %d bytes\n", rid, len);
-	//printf("%s", data);
+	printf("%s", data);
 }
 
 int main(void) {
