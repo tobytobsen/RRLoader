@@ -1,5 +1,6 @@
 #include <net/net.h>
 #include <net/socket.h>
+#include <net/socket_pool.h>
 
 #include <stdio.h>
 #include <string.h>
@@ -21,7 +22,7 @@ void _sleep(long s) {
 
 int main(void) {
 	socket_t listener;
-	socket_set_t clients;
+	socket_pool_t clients;
 	char buf[32];
 
 	if(false == socket_create_socket(&listener, LIBNET_PROTOCOL_TCP, LIBNET_IPV6)) {
@@ -29,7 +30,7 @@ int main(void) {
 		return -1;
 	}
 
-	socket_create_set(&clients);
+	socket_create_pool(&clients);
 
 	if(false == socket_listen(&listener, PORT)) {
 		printf("server: failed to listen at %d\r\n", PORT);
@@ -49,7 +50,7 @@ int main(void) {
 
 	_sleep(2); // to make sure the client recognizes everything
 
-	socket_release_set(&clients);
+	socket_release_pool(&clients);
 
 	socket_disconnect(&listener);
 	socket_release_socket(&listener);

@@ -21,7 +21,7 @@ int main(void) {
 		return -1;
 	}
 
-	if(false == socket_set_encryption(&s, LIBNET_ENC_SSL_V3, SSL_CERT, SSL_KEY)) {
+	if(false == socket_set_encryption(&s, LIBNET_ENC_SSL_V3, SSL_CERT, SSL_KEY, NULL)) {
 		printf("unable to use SSLv3 encryption\r\n");
 	}
 
