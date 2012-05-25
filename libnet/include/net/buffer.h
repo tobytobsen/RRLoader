@@ -68,6 +68,15 @@ void
 buffer_release(buffer_t *b);
 
 /**
+ * buffer_clear() cleans up the buffer, without resetting flags
+ *
+ * @param b buffer
+ * @param c char to clean with
+*/
+void
+buffer_clear(buffer_t *b, char c);
+
+/**
  * buffer_set_mode() sets file or memory buffer mode
  *
  * @param b buffer
@@ -103,11 +112,12 @@ buffer_set_formatted(buffer_t *b, char *format, ...);
  * buffer_write() writes to memory/file
  *
  * @param b buffer
+ * @param n amount of times to write data to buffer
  * @param data data to write
  * @size size size of data
 */
 void
-buffer_write(buffer_t *b, char *data, uint32_t size);
+buffer_write(buffer_t *b, uint32_t n, char *data, uint32_t size);
 
 /**
  * buffer_read() reads from buffer

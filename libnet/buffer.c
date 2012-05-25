@@ -143,6 +143,21 @@ buffer_release(buffer_t *b) {
 }
 
 void
+buffer_clear(buffer_t *b, char c) {
+	if(b == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}
+
+	uint32_t old_offset = b->offset;
+
+	buffer_seek(b, 0);
+	buffer_write(b, old_offset, &c, 1);
+
+	buffer_seek(b, 0);
+}
+
+void
 buffer_set_mode(buffer_t *b, buffer_mode_t mode) {
 	if(b->mode == mode) {
 		return;
@@ -251,28 +266,31 @@ buffer_write_formatted(buffer_t *b, char *format, ...) {
 }
 
 void
-buffer_write(buffer_t *b, char *data, uint32_t size) {
-	if(b == NULL || data == NULL || size == 0) {
+buffer_write(buffer_t *b, uint32_t n, char *data, uint32_t size) {
+	if(b == NULL || data == NULL || size == 0 || n != 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
 	}
 
-	switch(b->mode) {
-		case LIBNET_BM_FILE: {
-			fwrite(data, size, 1, b->fd);
+	while(n-- > 0) {
+		switch(b->mode) {
+			case LIBNET_BM_FILE: {
+				fwrite(data, size, 1, b->fd);
 
-			b->offset = fseek(b->fd, 0, SEEK_END);
-		} break;
+				b->offset = fseek(b->fd, 0, SEEK_END);
+			} break;
 
-		case LIBNET_BM_MEMORY: {
-			if(buffer_size_left(b) < size) {
-				if(false == resize_buffer(b, buffer_size_total(b) + size)) {
-					return;
+			case LIBNET_BM_MEMORY: {
+				if(buffer_size_left(b) < size) {
+					if(false == resize_buffer(b, buffer_size_total(b) + size)) {
+						return;
+					}
 				}
-			}
 
-			memcpy(b->mem + b->offset, data, size);
-		} break;
+				memcpy(b->mem + b->offset, data, size);
+				b->offset += size;
+			} break;
+		}
 	}
 }
 
