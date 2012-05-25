@@ -173,7 +173,7 @@ socket_create_socket(socket_t __inout *s, proto_t p, ip_ver_t v) {
 
 void
 socket_release_socket(socket_t __in *s) {
-	if(s == 0 || s->handle == 0) {
+	if(s == 0/* || s->handle == 0*/) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
 	}
@@ -353,9 +353,8 @@ socket_listen(socket_t __inout *s, port_t port) {
 
 void
 socket_disconnect(socket_t __inout *s) {
-	if(s == 0) {
+	if(s == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
-
 		return;
 	}
 
