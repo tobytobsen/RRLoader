@@ -1,0 +1,54 @@
+RFC
+
+System:
+- Unzip
+- Whois Lookup: cc (flag) + netname/OrgName z.B. NL - LEASEWEB
+- Clipboard überwachung für Links
+- Protokoll "sft/rrdl/rrl" registrieren (ggf. als Browsererweiterung?)
+- SFT-Support
+- Crypter soll ganze Ordner auslesen und verschlüsseln können
+- Proxy-Funktion
+- IPv6
+- Xup Kooperation
+
+UI:
+- Web
+- MAC
+- Linux
+- Windows
+
+Download:
+- CRC Check mit retry
+- Downloadbegrenzung
+- Shutdown / Standby nach beenden aller Downloads
+- Einstellbare Anzahl von Threads per File (Multisegment) *
+- Einstellbare Anzahl von Threads in Queue *
+- Priorisierung von einzelnen Dateien bzw Containern
+- Automatisch zwischen Passiv/Aktiv wechseln
+- Zielort der Datei bestimmen
+- Container automatisch löschen nach DL
+
+* Anzahl von Threads darf definition in Container nicht überschreiten!
+
+Fraglich:
+- Häufige Passwörter per Datenbank speichern + lookup beim öffnen von Container / Archiven
+- E-Mail Benachrichtung (wegen was?)
+- Bietmaker bereits mit einbauen
+- Auto-Update (Updatefunktion ja, automatisch nein. Ungefragt nach Hause telefonieren is doof)
+- einfache einbindung von userscripten zu bestimmten events (vor download, bei start, nach entpacken, etc.)
+  -> welche scriptspache? benötigt SDK ... erstmal nicht so wichtig.
+- automatische ersetzung von bestimmten zeichen in dateinamen (leerzeichen, umlaute, etc.)
+  -> warum? ok, bei "ÿ" vielleicht.
+
+Kommt als Plugin in Frage:
+- Click and Load (Muss von den betrffenden Webseiten implementiert werden)
+- Speedreport automatisch im Thread posten
+- Auto-Reconnect (hängt vom Router ab, JD hat damit ebenfalls Probleme)
+- auto-taggen nach regex oder pfaden, die in ner datei angegeben wurden
+- zuordnung zu definierbaren kategorien, die für das zielverzeichnis genutzt werden
+- nach erfolgreichem entpacken die archive löschen, optional noch eine angabe von 
+  dateiendungen, die gelösct werden sollen (*.db, *.nfo, *.sfv, etc.)
+- Es gibt ne Online-Liste, wo Scanner einige Pubs hinterlegen können. 
+  Der User wählt Dateien aus, die er hochladen möchte. Das Programm erledigt den Rest, 
+  d.h. sucht nen Pub aus der Liste, entfernt den Pub aus der Liste, taggt ihn, 
+  lädt die Dateien hoch und erstellt die Datei.
