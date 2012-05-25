@@ -13,11 +13,21 @@
 
 #include <net/mutex.h>
 
+#include <net/hash_table.h>
+
 #define LIBNET_HTTP_SIZE_BUF 		256
 #define LIBNET_HTTP_SIZE_REQ		4096
 
 #define LIBNET_HTTP_PORT_DEF		80
 #define LIBNET_HTTPS_PORT_DEF		443
+
+#define LIBNET_HTTP_DEL				"\r\n"
+#define LIBNET_HTTP_EOH				"\r\n\r\n"
+
+typedef enum http_rule {
+	LIBNET_HTTP_RULE_NONE = 0,
+	LIBNET_HTTP_RULE_FOLLOW,
+} http_rule_t;
 
 typedef enum http_sig {
 	LIBNET_SIG_HTTP_RESPONSE = 0,
@@ -71,8 +81,7 @@ typedef struct http_form_ent {
 typedef struct http_form {
 	char boundary[LIBNET_HTTP_SIZE_BUF];
 
-	uint32_t entities;
-	http_form_ent_t *entity;
+	htbl_t tbl;
 } http_form_t;
 
 typedef struct http_header_ent {
@@ -81,20 +90,8 @@ typedef struct http_header_ent {
 } http_header_ent_t;
 
 typedef struct http_header {
-	uint32_t entities;
-	http_header_ent_t *entity;
+	htbl_t tbl;
 } http_header_t;
-
-typedef struct http_request {
-	uint8_t sig;
-
-	http_header_t header;
-	http_method_t method;
-
-	http_form_t  *form;
-
-	char path[LIBNET_HTTP_SIZE_BUF];
-} http_request_t;
 
 typedef struct http_response {
 	uint8_t sig;
@@ -105,14 +102,39 @@ typedef struct http_response {
 	char *body;
 } http_response_t;
 
+typedef enum http_callback {
+	LIBNET_HTTP_CBT_READ = 0,
+	LIBNET_HTTP_CBT_NONE,
+} http_callback_t;
+
+typedef void (*http_cb_read_t) (uint32_t rid, char *data, uint32_t len);
+
+typedef struct http_request {
+	uint8_t sig;
+	uint32_t id;
+
+	struct {
+		http_cb_read_t read;
+	} cb;
+
+	http_response_t res;
+
+	http_header_t header;
+	http_method_t method;
+
+	http_form_t  form;
+
+	char path[LIBNET_HTTP_SIZE_BUF];
+} http_request_t;
+
 typedef struct http_connection {
 	socket_t handle;
 	char session[LIBNET_HTTP_SIZE_BUF];
 
-	http_version_t version;
 	struct url url;
 
-	http_response_t *last_response;
+	http_version_t version;
+	http_request_t *last_request;
 
 	mutex_t mtx_re;
 } http_con_t;
@@ -126,7 +148,7 @@ typedef struct http_connection {
  * @return returns true on success
 */
 bool
-http_connect(http_con_t __inout *h, const char __in *url);
+http_connect(http_con_t __inout *h, const char __in *url, http_version_t ver);
 
 /**
  * http_disconnect() closes a connection
@@ -135,6 +157,26 @@ http_connect(http_con_t __inout *h, const char __in *url);
 */
 void
 http_disconnect(http_con_t __inout *h);
+
+
+/**
+ * http_rules_set_rule() sets the given rule
+ *
+ * @param rules rule container
+ * @param rule the rule
+ * @param val the value set to the rule
+*/
+//void
+//http_rules_set_rule(http_rules_t *rules, http_rule_t rule, void *val);
+
+/**
+ * http_rules_remove_rule() removes the given rule
+ *
+ * @param rules rule container
+ * @param rule the rule
+*/
+//void
+//http_rules_remove_rule(http_rules_t *rules, http_rule_t rule);
 
 /**
  * http_request_create() creates a http request
@@ -146,7 +188,7 @@ http_disconnect(http_con_t __inout *h);
  * @param path path to request
 */
 void
-http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_t ver, http_method_t m, const char __in *path);
+http_request_create(http_con_t __in *h, http_request_t __inout *r, http_method_t m, const char __in *path);
 
 /**
  * http_request_release() releases the request created with http_request_create()
@@ -155,6 +197,16 @@ http_request_create(http_con_t __in *h, http_request_t __inout *r, http_version_
 */
 void
 http_request_release(http_request_t __inout *r);
+
+/**
+ * http_request_set_callback() sets callback
+ *
+ * @param req request
+ * @param cbt callback type
+ * @param fp function pointer
+*/
+void
+http_request_set_callback(http_request_t *req, http_callback_t cbt, void *fp);
 
 /**
  * http_request_exec() executes a http request
@@ -174,7 +226,7 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
  * @param v value
 */
 void
-http_header_set_kv_pair(void __inout *r, const char __in *k, const char __in *v);
+http_header_set_kv_pair(void __inout *r, char __in *k, char __in *v);
 
 /**
  * http_header_get_value_by_name() is used to get a value to a specific key

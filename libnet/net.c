@@ -45,6 +45,14 @@ libnet_str_error(uint32_t err) {
 
 		case LIBNET_E_SET_SIZE_EXCEEDED: 
 			return "socket set is full";
+		case LIBNET_E_MEM:
+			return "memory error. maybe not enough memory left.";
+		case LIBNET_E_HASH_SIZE_EXCEEDED:
+			return "hash size too large.";
+		case LIBNET_E_BUFFER_FILE_BLOCKED:
+			return "could not open file: file is blocked";
+		case LIBNET_E_BUFFER_OFFSET_INVALID:
+			return "offset is too high, using the old one.";
 
 		case LIBNET_E_ENC_SHUTDOWN: 
 			return "failed to shutdown encrypted socket";

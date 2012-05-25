@@ -7,12 +7,11 @@
 #define LIBNET_SOCKET_H_
 
 #include <types.h>
+#include <net/net.h>
 
-#if defined(_WIN32) || defined(__WIN32__) || defined(_MSC_VER)
-# define WIN32
+#ifdef WIN32
 # include <winsock2.h>
-#else
-# define NIX
+#else if defined(NIX)
 # include <sys/types.h>
 # include <sys/socket.h>
 # include <sys/time.h>
@@ -112,6 +111,7 @@ typedef union ip {
 typedef uint16_t 	port_t;
 
 #define socket_set_timeout(s, t) socket_set_param((s), LIBNET_P_TIMEOUT, ((void *)(&t)))
+#define socket_can_accept(s) socket_is_readable((s))
 
 /**
  * socket_create_socket() creates a socket handle of given protocol and IP version 
@@ -173,7 +173,7 @@ socket_disconnect(socket_t __inout *s);
  * @return returns true if a client connected
 */
 bool
-socket_accept(socket_t __in *listener, struct socket_pool __inout *set);
+socket_accept(socket_t __in *listener, struct socket_pool __inout *pool);
 
 /**
  * socket_async_accept() is the asynchronous version of socket_accept()
@@ -184,7 +184,7 @@ socket_accept(socket_t __in *listener, struct socket_pool __inout *set);
  * @return returns true if a client connected
 */
 bool
-socket_async_accept(socket_t __in *listener, struct socket_pool __inout *set);
+socket_async_accept(socket_t __in *listener, struct socket_pool __inout *pool);
 
 /**
  * socket_read() reads from a socket
@@ -211,6 +211,16 @@ uint32_t
 socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
 
 /**
+ * socket_is_readable() detects if the socket is readable
+ *
+ * @param s socket handle
+ *
+ * @return returns true if readable
+*/
+bool
+socket_is_readable(socket_t __in *s);
+
+/**
  * socket_write() writes to a socket
  *
  * @param s socket handle
@@ -218,7 +228,7 @@ socket_async_read(socket_t __in *s, uint8_t __inout *buf, uint32_t len);
  * @param len size of the storage
 */
 void
-socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
+socket_write(socket_t __in *s, const uint8_t __in *buf, uint32_t len);
 
 /**
  * socket_async_write() is the asynchronous version of socket_write()
@@ -228,7 +238,17 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
  * @param len size of the storage
 */
 void
-socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
+socket_async_write(socket_t __in *s, const uint8_t __in *buf, uint32_t len);
+
+/**
+ * socket_is_writeable() detects if the socket is writeable
+ *
+ * @param s socket handle
+ *
+ * @return returns true if writeable
+*/
+bool
+socket_is_writeable(socket_t __in *s);
 
 /**
  * socket_set_encryption() is used to configure the socket for SSL or TLS
