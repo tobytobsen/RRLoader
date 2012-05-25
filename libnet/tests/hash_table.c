@@ -7,8 +7,8 @@ int main(void) {
 	htbl_t ht;
 
 	htbl_create(&ht, 0);
-	htbl_insert(&ht, "foo", "bar", 4);
-	htbl_insert(&ht, "fu", &ht, sizeof(htbl_t));
+	htbl_insert_copy(&ht, "foo", "bar", 4);
+	htbl_insert(&ht, "fu", &ht);
 
 	printf("htbl[foo] = %s\n", htbl_get(htbl_get(&ht, "fu"), "foo"));
 

@@ -3,10 +3,6 @@
 
 #include <types.h>
 
-/*
- todo: allocation? ..
-*/
-
 #define LIBNET_HASH_SIZE 				32
 #define LIBNET_HASH_GENERATOR_DEFAULT 	htbl_hash_gen_md5
 
@@ -16,7 +12,6 @@ typedef struct htbl_ent {
 	uint8_t hash[LIBNET_HASH_SIZE];
 	void *data;
 	uint32_t size;
-	//bool allocated;
 } htbl_ent_t;
 
 typedef struct htbl {
@@ -47,7 +42,10 @@ void
 htbl_set_hash_generator(htbl_t *tbl, htbl_hash_gen_t gen);
 
 void
-htbl_insert(htbl_t *tbl, uint8_t *key, void *data, uint32_t size);
+htbl_insert(htbl_t *tbl, uint8_t *key, void *data);
+
+void
+htbl_insert_copy(htbl_t *tbl, uint8_t *key, void *data, uint32_t size);
 
 void
 htbl_remove(htbl_t *tbl, uint8_t *key);
