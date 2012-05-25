@@ -13,6 +13,7 @@
 
 #include <net/mutex.h>
 
+#include <net/buffer.h>
 #include <net/hash_table.h>
 
 #define LIBNET_HTTP_SIZE_BUF 		256
@@ -73,7 +74,7 @@ typedef enum http_repsonse_code {
 
 typedef struct http_form_ent {
 	char name[LIBNET_HTTP_SIZE_BUF];
-	char *body;
+	buffer_t body;
 	
 	http_mime_t mime;
 } http_form_ent_t;
@@ -99,7 +100,7 @@ typedef struct http_response {
 	http_response_code_t code;
 	http_header_t header;
 
-	char *body;
+	buffer_t body;
 } http_response_t;
 
 typedef enum http_callback {

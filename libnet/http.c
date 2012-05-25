@@ -18,7 +18,7 @@ get_chunk_size(http_con_t *h) {
 		socket_read(&h->handle, buf+o++, 1);
 	}
 
-	sprintf(buf, "%d", strtol(buf, NULL, 16));
+	sprintf(buf, "%d", (int)strtol(buf, NULL, 16));
 	return atoi(buf);
 }
 
@@ -41,52 +41,37 @@ get_version_str(http_version_t v) {
 	}
 }
 
-char *
-build_request(http_con_t *h, http_request_t *req) {
-	char *buf;
-
-	if(h == 0 || req == 0) {
+void
+build_request(http_con_t *h, http_request_t *req, buffer_t *buf) {
+	if(h == 0 || req == 0 || buf == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
-		return NULL;
+		return;
 	}
 
-	buf = calloc(1, LIBNET_HTTP_SIZE_REQ);
-
-	if(buf == NULL) {
-		libnet_error_set(LIBNET_E_MEM);
-		return buf;
-	}
-
-	if(htbl_empty(&req->form.tbl) == false) {
-		// ..
-	}
-
-	snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s %s %s%s", 
+	buffer_write_formatted(buf, "%s %s %s%s", 
 		get_method_str(req->method),
 		req->path,
 		get_version_str(h->version),
 		LIBNET_HTTP_DEL);
 
 	if(htbl_empty(&req->header.tbl) == false) {
-		uint32_t i=0;
-		http_header_ent_t *e;
+		uint32_t i = 0;
+		http_header_ent_t *e = NULL;
 
 		while(NULL != htbl_enumerate(&req->header.tbl, &i, NULL, (void **)&e)) {
-			snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s: %s%s",
-				buf, e->key, e->value,
+			buffer_write_formatted(buf, "%s: %s%s",
+				e->key, e->value,
 				LIBNET_HTTP_DEL);
 		}
 	}
 
-	snprintf(buf, LIBNET_HTTP_SIZE_REQ - 1, "%s%s", buf, LIBNET_HTTP_DEL);
+	buffer_write_formatted(buf, "%s", LIBNET_HTTP_DEL);
 
-	// printf("%s\n",buf);
-
-	return buf;
+	printf("Request: %s\n", buffer_get(buf));
 }
 
 void
-parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
+parse_response(http_con_t *h, http_response_t *res, const char *buf, uint32_t len) {
 	char *tmp;
 	uint32_t tmplen;
 
@@ -103,14 +88,13 @@ parse_response(http_con_t *h, http_response_t *res, char *buf, uint32_t len) {
 		return; // malformed
 	}
 
-	tmp = buf + tmplen + 1;
+	tmp = ((char *)buf) + tmplen + 1;
 	res->sig = LIBNET_SIG_HTTP_RESPONSE;
 	res->code = (http_response_code_t)(atoi(tmp));
-	res->body = 0;
 
 	htbl_create(&res->header.tbl, 0);
 
-	tmp = strtok(buf, LIBNET_HTTP_DEL);
+	tmp = strtok((char *)buf, LIBNET_HTTP_DEL);
 	
 	while(NULL != (tmp = strtok(NULL, LIBNET_HTTP_DEL))) {
 		http_header_ent_t he = {0};
@@ -239,9 +223,7 @@ http_request_release(http_request_t __inout *r) {
 	htbl_release(&r->form.tbl);
 	htbl_release(&r->res.header.tbl);
 
-	if(r->res.body != NULL) {
-		free(r->res.body);
-	}
+	buffer_release(&r->res.body);
 }
 
 void
@@ -261,10 +243,8 @@ http_request_set_callback(http_request_t *req, http_callback_t cbt, void *fp) {
 /* doesn't seem to read everything.. */
 void
 http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t __inout *res) {
-	char *buf, chunk[LIBNET_HTTP_SIZE_REQ] = {0}, *tmp;
-	uint32_t chunks = 1, o = 0;
+	char c, chunk[LIBNET_HTTP_SIZE_REQ] = {0}, *tmp;
 	int len, to_read = 0;
-	char c;
 
 	if(h == 0 || req == 0 || res == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
@@ -274,78 +254,58 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 	mutex_acquire(&h->mtx_re);
 
 	memset(res, 0, sizeof(http_response_t));
+	htbl_create(&res->header.tbl, 0);
 
-	/* bad 												 	*/
-	buf = build_request(h, req); 					/* <- 	*/
+	if(false == buffer_create(&res->body, LIBNET_BM_MEMORY)) {
+		buffer_release(&res->body);
+		mutex_release(&h->mtx_re);
+		return;
+	}
 
-	if(buf == NULL) {								/* <- 	*/
-		return;										/* <- 	*/
-	}												/* <- 	*/
-
-	socket_write(&h->handle, buf, strlen(buf));		/* <- 	*/
-	free(buf);										/* <- 	*/
+	build_request(h, req, &res->body);
+	socket_write(&h->handle, buffer_get(&res->body), buffer_size(&res->body));
+	buffer_clear(&res->body, 0);
 
 	while(0 != socket_read(&h->handle, &c, 1)) {
-		chunk[o++] = c;
+		buffer_write(&res->body, 1, &c, 1);
 
-		if(strstr(chunk, LIBNET_HTTP_EOH)) {
+		if(strstr(buffer_get(&res->body), LIBNET_HTTP_EOH)) {
 			break;
 		}
 
-		if(o == LIBNET_HTTP_SIZE_REQ) {
+		if(buffer_size(&res->body) >= LIBNET_HTTP_SIZE_REQ) {
+			mutex_release(&h->mtx_re);
+			buffer_release(&res->body);
 			return; // failure, header is supposed to be <4096 bytes
 		}
 	}
 
-	parse_response(h, res, chunk, o);
+	parse_response(h, res, buffer_get(&res->body), buffer_size(&res->body));
+	buffer_clear(&res->body, 0);
 
 	/* check the way the server sends data */
-	if(NULL != (tmp = http_header_get_value_by_name(res, "transfer-encoding"))) {
+	if(NULL != (tmp = (char *)http_header_get_value_by_name(res, "transfer-encoding"))) {
 		if(!strcmp(tmp, "chunked")) {
 			to_read = get_chunk_size(h);
 		}
-	} else if(NULL != (tmp = http_header_get_value_by_name(res, "content-length"))) {
+	} else if(NULL != (tmp = (char *)http_header_get_value_by_name(res, "content-length"))) {
 		to_read = atoi(tmp);
 	} else {
+		buffer_release(&res->body);
+		mutex_release(&h->mtx_re);
 		return; // not supported
 	}
 
 	// printf("chunk size: %d\r\n", to_read);
-	
-	if(req->cb.read == NULL) {
-		buf = calloc(1, LIBNET_HTTP_SIZE_REQ);
-
-		if(buf == NULL) {
-			libnet_error_set(LIBNET_E_MEM);
-			return;
-		}
-
-		res->body = buf;
-		o = 0;
-	} else {
-		buf = NULL;
-	}
 
 	while(/*true == socket_is_readable(&h->handle)*/to_read > 0) {
 		len = LIBNET_HTTP_SIZE_REQ < to_read ? LIBNET_HTTP_SIZE_REQ : to_read;
 		len = socket_read(&h->handle, chunk, len);
 
-		//// printf("to_read: %d\n", to_read);
 		to_read -= len;
 
-		if(buf != NULL) {
-			if((o+len) >= (chunks * LIBNET_HTTP_SIZE_REQ)) {
-				buf = realloc(buf, (++chunks * LIBNET_HTTP_SIZE_REQ));
-				res->body = buf;
-
-				if(buf == NULL) {
-					libnet_error_set(LIBNET_E_MEM);
-					return;
-				}
-			}
-
-			memcpy(buf + o, chunk, len);
-			o += len;
+		if(req->cb.read == NULL) {
+			buffer_write(&res->body, 1, chunk, len);
 		} else {
 			req->cb.read(req->id, chunk, len);
 		}
@@ -360,11 +320,9 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		}
 	}
 
-//	if(buf != NULL) {
-//		buf[o] = 0;
-//	}
-
 	memcpy(&req->res, res, sizeof(http_response_t));
+	buffer_create_from_buffer(&req->res.body, &res->body);
+	buffer_release(&res->body);
 
 	h->last_request = req;
 	mutex_release(&h->mtx_re);
@@ -372,7 +330,7 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 
 void
 http_header_set_kv_pair(void __inout *r, char __in *k, char __in *v) {
-	http_header_t *header;
+	http_header_t *header = NULL;
 
 	char *strtolower(char *str) {
 		uint16_t i=0;
@@ -417,9 +375,8 @@ http_header_set_kv_pair(void __inout *r, char __in *k, char __in *v) {
 
 const char *
 http_header_get_value_by_name(void __inout *r, const char __in *name) {
-	http_header_t *h;
-	http_header_ent_t *e;
-	uint32_t i;
+	http_header_t *h = NULL;
+	http_header_ent_t *e = NULL;
 
 	if(r == 0 || name == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
@@ -438,13 +395,8 @@ http_header_get_value_by_name(void __inout *r, const char __in *name) {
 		default: return NULL;
 	}
 
-	e = (http_header_ent_t *)htbl_get(&h->tbl, name);
-
-	if(e != NULL) {
-		return e->value;
-	}
-
-	return NULL;
+	e = (http_header_ent_t *)htbl_get(&h->tbl, (uint8_t *)name);
+	return (e != NULL) ? e->value : NULL;
 }
 
 void

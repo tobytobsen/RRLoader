@@ -41,7 +41,7 @@ find_free_entity(htbl_t *tbl, uint8_t *key) {
 		tbl->entity = realloc(tbl->entity, sizeof(htbl_ent_t) * ++tbl->entities);
 
 		tbl->entity[i].data = NULL;
-		tbl->entity[i].size = NULL;
+		tbl->entity[i].size = 0;
 
 		memset(tbl->entity[i].hash, 0, LIBNET_HASH_SIZE);
 	}
@@ -62,7 +62,6 @@ htbl_hash_gen_plain(uint8_t *hash, uint8_t *key) {
 
 bool
 htbl_hash_gen_md5(uint8_t *hash, uint8_t *key) {
-	// printf("ASDASD\n");
 	if(hash == NULL || key == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return false;
@@ -149,7 +148,7 @@ void
 htbl_insert(htbl_t *tbl, uint8_t *key, void *data) {
 	htbl_ent_t *e = find_free_entity(tbl, key);
 
-	if(e == NULL) {
+	if(e == NULL || tbl == NULL || tbl->gen == NULL) {
 		return;
 	}
 
@@ -170,7 +169,7 @@ void
 htbl_insert_copy(htbl_t *tbl, uint8_t *key, void *data, uint32_t size) {
 	htbl_ent_t *e = find_free_entity(tbl, key);
 
-	if(e == NULL) {
+	if(e == NULL || tbl == NULL || tbl->gen == NULL) {
 		return;
 	}
 
@@ -225,9 +224,9 @@ htbl_remove(htbl_t *tbl, uint8_t *key) {
 void *
 htbl_get(htbl_t *tbl, uint8_t *key) {
 	uint32_t i;
-	uint8_t hash[LIBNET_HASH_SIZE] = {0};
+	uint8_t hash[LIBNET_HASH_SIZE+1] = {0};
 
-	if(tbl == NULL || key == NULL) {
+	if(tbl == NULL || tbl->gen == NULL|| key == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return NULL;
 	}
