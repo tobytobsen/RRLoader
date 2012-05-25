@@ -41,7 +41,7 @@ Fraglich:
   -> warum? ok, bei "ÿ" vielleicht.
 
 Kommt als Plugin in Frage:
-- Click and Load (Muss von den betrffenden Webseiten implementiert werden)
+- Click and Load (Muss von den betreffenden Webseiten implementiert werden)
 - Speedreport automatisch im Thread posten
 - Auto-Reconnect (hängt vom Router ab, JD hat damit ebenfalls Probleme)
 - auto-taggen nach regex oder pfaden, die in ner datei angegeben wurden
