@@ -543,12 +543,12 @@ socket_is_readable(socket_t __in *s) {
 }
 
 void
-socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
+socket_write(socket_t __in *s, const uint8_t __in *buf, uint32_t len) {
 	int ret = 0;
 	struct sockaddr *info;
 	uint32_t infolen;
 
-	if(s == 0 || s->handle == 0 || buf == 0) {
+	if(s == 0 || s->handle == 0 || buf == 0 || len == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
 		return;
@@ -584,7 +584,7 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
 }
 
 void
-socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len) {
+socket_async_write(socket_t __in *s, const uint8_t __in *buf, uint32_t len) {
 	if(s == 0 || s->handle == 0 || buf == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
@@ -603,7 +603,7 @@ socket_is_writeable(socket_t __in *s) {
 	if(s == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 
-		return;
+		return false;
 	}
 
 	FD_ZERO(&ws);

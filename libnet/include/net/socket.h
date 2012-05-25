@@ -7,12 +7,11 @@
 #define LIBNET_SOCKET_H_
 
 #include <types.h>
+#include <net/net.h>
 
-#if defined(_WIN32) || defined(__WIN32__) || defined(_MSC_VER)
-# define WIN32
+#ifdef WIN32
 # include <winsock2.h>
-#else
-# define NIX
+#else if defined(NIX)
 # include <sys/types.h>
 # include <sys/socket.h>
 # include <sys/time.h>
@@ -229,7 +228,7 @@ socket_is_readable(socket_t __in *s);
  * @param len size of the storage
 */
 void
-socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
+socket_write(socket_t __in *s, const uint8_t __in *buf, uint32_t len);
 
 /**
  * socket_async_write() is the asynchronous version of socket_write()
@@ -239,7 +238,7 @@ socket_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
  * @param len size of the storage
 */
 void
-socket_async_write(socket_t __in *s, uint8_t __in *buf, uint32_t len);
+socket_async_write(socket_t __in *s, const uint8_t __in *buf, uint32_t len);
 
 /**
  * socket_is_writeable() detects if the socket is writeable
