@@ -6,20 +6,27 @@
 
 uint32_t
 get_chunk_size(http_con_t *h) {
-	char buf[32] = {0}, buff[32], *b;
-	uint32_t o = 0, len = 0;
+	char c, chunk_size[32] = {0};
+	buffer_t buf;
+
+	buffer_create(&buf, LIBNET_BM_MEMORY);
 
 	if(h == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return 0;
 	}
 
-	while(NULL == strstr(buf, LIBNET_HTTP_DEL) && o < 32) {
-		socket_read(&h->handle, buf+o++, 1);
+	while(NULL == strstr(buffer_get(&buf), LIBNET_HTTP_DEL)) {
+		socket_read(&h->handle, &c, 1);
+		buffer_write(&buf, 1, &c, 1);
 	}
 
-	sprintf(buf, "%d", (int)strtol(buf, NULL, 16));
-	return atoi(buf);
+	//printf("data: %s\n", buffer_get(&buf));
+
+	sprintf(chunk_size, "%d", (int)strtol(buffer_get(&buf), NULL, 16));
+	buffer_release(&buf);
+
+	return atoi(chunk_size);
 }
 
 const char *
@@ -112,6 +119,7 @@ parse_response(http_con_t *h, http_response_t *res, const char *buf, uint32_t le
 			}
 
 			strncpy(he.value, del, LIBNET_HTTP_SIZE_BUF);
+			//printf("%s -> %s\n", he.key, he.value);
 			http_header_set_kv_pair(res, he.key, he.value);
 		}
 	}
@@ -284,8 +292,11 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 	buffer_clear(&res->body, 0);
 
 	/* check the way the server sends data */
+	bool chunked_transfer = false;
+
 	if(NULL != (tmp = (char *)http_header_get_value_by_name(res, "transfer-encoding"))) {
 		if(!strcmp(tmp, "chunked")) {
+			chunked_transfer = true;
 			to_read = get_chunk_size(h);
 		}
 	} else if(NULL != (tmp = (char *)http_header_get_value_by_name(res, "content-length"))) {
@@ -296,10 +307,9 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		return; // not supported
 	}
 
-	// printf("chunk size: %d\r\n", to_read);
-
 	while(/*true == socket_is_readable(&h->handle)*/to_read > 0) {
 		len = LIBNET_HTTP_SIZE_REQ < to_read ? LIBNET_HTTP_SIZE_REQ : to_read;
+		//printf("%d - %d\n", len, to_read);
 		len = socket_read(&h->handle, chunk, len);
 
 		to_read -= len;
@@ -311,7 +321,7 @@ http_request_exec(http_con_t __in *h, http_request_t __in *req, http_response_t 
 		}
 
 		/* check, if there is data to read */
-		if(to_read <= 0 && socket_is_readable(&h->handle)) {
+		if(to_read <= 0 && chunked_transfer == true) {
 			to_read = get_chunk_size(h);
 
 			if(to_read == 0) {
