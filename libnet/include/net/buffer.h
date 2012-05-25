@@ -49,6 +49,18 @@ bool
 buffer_create(buffer_t *b, buffer_mode_t mode);
 
 /**
+ * buffer_create_from_buffer() creates an buffer from a buffer
+ *
+ * @param dst destination buffer
+ * @param src source buffer mode
+ *
+ * @return returns true if successful, otherwise false is returned
+*/
+bool
+buffer_create_from_buffer(buffer_t *dst, buffer_t *src);
+
+
+/**
  * buffer_create_from_file() creates an file buffer with given path
  *
  * @param b buffer
@@ -66,6 +78,15 @@ buffer_create_from_file(buffer_t *b, const char *path);
 */
 void
 buffer_release(buffer_t *b);
+
+/**
+ * buffer_copy() copies the whole buffer
+ *
+ * @param dst destination buffer
+ * @param src source buffer
+*/
+void
+buffer_copy(buffer_t *dst, buffer_t *src);
 
 /**
  * buffer_clear() cleans up the buffer, without resetting flags
@@ -106,7 +127,7 @@ buffer_get(buffer_t *b);
  * @param format and args
 */
 void
-buffer_set_formatted(buffer_t *b, char *format, ...);
+buffer_write_formatted(buffer_t *b, const char *format, ...);
 
 /**
  * buffer_write() writes to memory/file
@@ -117,7 +138,7 @@ buffer_set_formatted(buffer_t *b, char *format, ...);
  * @size size size of data
 */
 void
-buffer_write(buffer_t *b, uint32_t n, char *data, uint32_t size);
+buffer_write(buffer_t *b, uint32_t n, const char *data, uint32_t size);
 
 /**
  * buffer_read() reads from buffer

@@ -88,6 +88,20 @@ buffer_create(buffer_t *b, buffer_mode_t mode) {
 }
 
 bool
+buffer_create_from_buffer(buffer_t *dst, buffer_t *src) {
+	if(dst == NULL || src == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return false;
+	}
+
+	if(false == buffer_create(dst, src->mode)) {
+		return false;
+	}
+
+	buffer_copy(dst, src);
+}
+
+bool
 buffer_create_from_file(buffer_t *b, const char *path) {
 	if(b == NULL || path == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
@@ -98,7 +112,7 @@ buffer_create_from_file(buffer_t *b, const char *path) {
 
 	b->id = ++buffer_count;
 	b->chunk_size = LIBNET_BUFFER_CHUNK_SIZE;
-	b->mode = LIBNET_BUFFER_FILE;
+	b->mode = LIBNET_BM_FILE;
 
 	b->fd = fopen(path, "w");
 
@@ -143,6 +157,20 @@ buffer_release(buffer_t *b) {
 }
 
 void
+buffer_copy(buffer_t *dst, buffer_t *src) {
+	if(dst == NULL || src == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}
+
+	uint32_t old_offset = buffer_size(src);
+
+	buffer_seek(src, 0);
+	buffer_write(dst, 1, buffer_get(src), old_offset);
+	buffer_seek(src, old_offset);
+}
+
+void
 buffer_clear(buffer_t *b, char c) {
 	if(b == NULL) {
 		libnet_error_set(LIBNET_E_INV_ARG);
@@ -176,7 +204,7 @@ buffer_set_mode(buffer_t *b, buffer_mode_t mode) {
 			b->fd = fopen(tmp, "w");
 
 			if(b->fd == NULL) {
-				libnet_error_set(LIBNET_E_BUFFER_FILE_BLOCKED)
+				libnet_error_set(LIBNET_E_BUFFER_FILE_BLOCKED);
 				return;
 			}
 
@@ -220,7 +248,7 @@ buffer_get(buffer_t *b) {
 }
 
 void
-buffer_write_formatted(buffer_t *b, char *format, ...) {
+buffer_write_formatted(buffer_t *b, const char *format, ...) {
 	va_list vl;
 	uint32_t len = 0, tmp = 0;
 	int ret = 0;
@@ -266,7 +294,7 @@ buffer_write_formatted(buffer_t *b, char *format, ...) {
 }
 
 void
-buffer_write(buffer_t *b, uint32_t n, char *data, uint32_t size) {
+buffer_write(buffer_t *b, uint32_t n, const char *data, uint32_t size) {
 	if(b == NULL || data == NULL || size == 0 || n != 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
 		return;
@@ -292,6 +320,22 @@ buffer_write(buffer_t *b, uint32_t n, char *data, uint32_t size) {
 			} break;
 		}
 	}
+}
+
+void
+buffer_read_formatted(buffer_t *b, char *format, ...) {
+	va_list vl;
+	uint32_t len = 0, tmp = 0;
+	int ret = 0;
+
+	if(b == NULL || format == 0) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}
+
+	va_start(vl, format);
+	vsscanf(b->mem, format, vl);
+	va_end(vl);
 }
 
 uint32_t
