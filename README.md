@@ -30,4 +30,4 @@ Pfad: `/gui/java`
 ##  coach
 Unsere QA und verantwortlich für Sprachübersetzungen
 
-Pfad: '/lang'
+Pfad: `/lang`
