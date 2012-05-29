@@ -40,4 +40,16 @@ http_disconnect(http_ctx_t *c);
 void
 http_execute(http_ctx_t *c);
 
+/*
+	simple get target:
+
+	http_ctx_t ctx;
+
+	http_connect(&ctx, "http://google.de");
+	http_set_option(&ctx, LIBNET_HTTP_CALLBACK_READ, (void *)some_function);
+	http_execute(&ctx);
+	http_disconnect(&ctx);
+
+*/
+
 #endif /* LIBNET_HTTP_H_ */
