@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta http-equiv="Content-type" content="text/html; Charset=UTF-8" />
+    <title>EventSource (SSE) Test</title>
+    <style type="text/css">* { font-family: monospace; font-size: 11pt; }</style>
+  </head>
+  <body>
+    <output id="log"></output>
+    
+    <script type="text/javascript">
+      (function() {
+        var log = document.querySelector('#log'),
+            src = new EventSource('server.php');
+              
+        function output(type, data) {
+          log.insertAdjacentHTML(
+            'afterbegin', 
+            '<p><strong>' + type + ':</strong> ' + data + '</p>'
+          );
+        }
+              
+        src.addEventListener('message', function(event) {
+          // tritt auf wenn daten ohne event-name verfügbar sind
+          var data = event.data;
+          output('message', data);
+        });
+        
+        src.addEventListener('custom-event', function(event) {
+          // tritt auf wenn daten via "custom-event" gesendet wurden
+          var data = event.data;
+          output('custom-event', data);
+        }); 
+      })();
+    </script>
+  </body>
+</html>
