@@ -29,7 +29,11 @@ Programmierer für die GUI in Java
 
 Pfad: `/gui/java`
 
-##  coach
-Unsere QA und verantwortlich für Sprachübersetzungen
+## coach
+Unsere QA 
+
+## osiris, coach
+Übersetzer div. Sprachen
+
 
 Pfad: `/lang`
