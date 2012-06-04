@@ -24,6 +24,9 @@
     <Filter Include="Ressourcen">
       <UniqueIdentifier>{f4a019a3-5254-401d-9490-31c4d15a6b6d}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Dateien\QtSingleApplication">
+      <UniqueIdentifier>{f76e5235-fd14-47a8-80e3-0dff98aab759}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp">
@@ -41,6 +44,42 @@
     <ClCompile Include="GeneratedFiles\qrc_qrrmainwin.cpp">
       <Filter>Generierte Dateien</Filter>
     </ClCompile>
+    <ClCompile Include="QtSingleApplication\qtlocalpeer.cpp">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_qtlocalpeer.cpp">
+      <Filter>Generierte Dateien\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_qtlocalpeer.cpp">
+      <Filter>Generierte Dateien\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="QtSingleApplication\qtlockedfile.cpp">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </ClCompile>
+    <ClCompile Include="QtSingleApplication\qtlockedfile_unix.cpp">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </ClCompile>
+    <ClCompile Include="QtSingleApplication\qtlockedfile_win.cpp">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </ClCompile>
+    <ClCompile Include="QtSingleApplication\qtsingleapplication.cpp">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_qtsingleapplication.cpp">
+      <Filter>Generierte Dateien\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_qtsingleapplication.cpp">
+      <Filter>Generierte Dateien\Release</Filter>
+    </ClCompile>
+    <ClCompile Include="QtSingleApplication\qtsinglecoreapplication.cpp">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Debug\moc_qtsinglecoreapplication.cpp">
+      <Filter>Generierte Dateien\Debug</Filter>
+    </ClCompile>
+    <ClCompile Include="GeneratedFiles\Release\moc_qtsinglecoreapplication.cpp">
+      <Filter>Generierte Dateien\Release</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="qrrmainwin.h">
@@ -52,10 +91,22 @@
     <CustomBuild Include="qrrmainwin.qrc">
       <Filter>Ressourcen</Filter>
     </CustomBuild>
+    <CustomBuild Include="QtSingleApplication\qtlocalpeer.h">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </CustomBuild>
+    <CustomBuild Include="QtSingleApplication\qtsingleapplication.h">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </CustomBuild>
+    <CustomBuild Include="QtSingleApplication\qtsinglecoreapplication.h">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
+    </CustomBuild>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="GeneratedFiles\ui_qrrmainwin.h">
       <Filter>Generierte Dateien</Filter>
+    </ClInclude>
+    <ClInclude Include="QtSingleApplication\qtlockedfile.h">
+      <Filter>Source Dateien\QtSingleApplication</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
