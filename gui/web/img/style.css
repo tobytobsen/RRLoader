@@ -126,7 +126,7 @@ header nav button {
   border: 1px solid #1e1f1e;
   border-radius: 3px;
   color: #fff;
-  padding: 0 7px;
+  padding: 0 10px;
   cursor: pointer;
   position: relative;
   top: 4px;
@@ -145,7 +145,7 @@ header nav button {
           box-shadow: 0 1px 0 0 #3C3D3C, 0 1px 0 0 #5d5e5d inset;
 }
 
-header nav button::-moz-inner-focus {
+header nav button::-moz-focus-inner {
   padding: 0;
 }
 
@@ -191,6 +191,32 @@ header nav .group button:first-child {
 header nav .group button:last-child {
   border-radius: 0 3px 3px 0;
 }
+
+/* webkit hack */
+@media screen and (-webkit-min-device-pixel-ratio:0) {  
+  header nav button:before {
+    top: 1px;
+  }
+  
+  header nav .group button:not(:first-child) {
+    margin-left: -6px;
+  }
+}
+
+/* opera hack */
+@media all and (-webkit-min-device-pixel-ratio:10000), not all and (-webkit-min-device-pixel-ratio:0) {
+  header nav button:before {
+    top: 0;
+  }
+  
+  /* this makes absolutly no sence, don't try to understand this! */
+  header nav .group button:not(:first-child):not(:last-child) {
+    -o-box-shadow: 0px 1px 0px 0px #3C3D3C, 0px 2px 0px 0px #5D5E5D inset, 1px 1px 0px 0px #5D5E5D inset;
+       box-shadow: 0px 1px 0px 0px #3C3D3C, 0px 2px 0px 0px #5D5E5D inset, 1px 1px 0px 0px #5D5E5D inset;
+  }
+}
+
+/* IE10 fixes will follow i think, but atm i don't have access to windows 8 */
 
 #main h2 {
   text-align: center;
