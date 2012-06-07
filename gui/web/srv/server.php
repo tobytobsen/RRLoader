@@ -62,7 +62,7 @@ for ($cpl = [];;) {
     
     switch ($buf) {
       case 'hello':
-        socket_write($clt, 'hello!', 5);
+        socket_write($clt, chr(0) . 'hello!' . chr(255), 7);
         break;
     }
   }
