@@ -308,8 +308,7 @@ buffer_write(buffer_t *b, uint32_t n, const char *data, uint32_t size) {
 		switch(b->mode) {
 			case LIBNET_BM_FILE: {
 				fwrite(data, size, 1, b->fd);
-
-				b->offset = fseek(b->fd, 0, SEEK_END);
+				b->offset = fseek(b->fd, 0, SEEK_CUR);
 			} break;
 
 			case LIBNET_BM_MEMORY: {
@@ -326,20 +325,31 @@ buffer_write(buffer_t *b, uint32_t n, const char *data, uint32_t size) {
 	}
 }
 
-void
+int
 buffer_read_formatted(buffer_t *b, char *format, ...) {
 	va_list vl;
-	uint32_t len = 0, tmp = 0;
 	int ret = 0;
 
 	if(b == NULL || format == 0) {
 		libnet_error_set(LIBNET_E_INV_ARG);
-		return;
+		return 0;
 	}
 
 	va_start(vl, format);
-	vsscanf(b->mem, format, vl);
+
+	switch(b->mode) {
+		case LIBNET_BM_FILE: {
+			ret = vfscanf(b->fd, format, vl);
+		} break;
+
+		case LIBNET_BM_MEMORY: {
+			ret = vsscanf(b->mem, format, vl);
+		} break;
+	}
+
+	/* check offset */
 	va_end(vl);
+	return ret;
 }
 
 uint32_t
@@ -354,21 +364,20 @@ buffer_read(buffer_t *b, char *dest, uint32_t size) {
 	switch(b->mode) {
 		case LIBNET_BM_FILE: {
 			len = fread(dest, size, 1, b->fd);
-			b->offset = fseek(b->fd, 0, SEEK_END);
 		} break;
 
 		case LIBNET_BM_MEMORY: {
-			len = buffer_size_left(b) - size;
-
-			if(len > 0) {
+			if((buffer_size_left(b) - size) < 0) {
 				len = 0;
 			} else {
-				len -= size;
+				len = size;
 			}
 
 			memcpy(dest, b->mem + b->offset, len);
 		} break;
 	}
+
+	b->offset += len;
 
 	return len;
 }
