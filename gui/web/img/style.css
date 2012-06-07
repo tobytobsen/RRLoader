@@ -172,10 +172,19 @@ header nav .left button {
           box-shadow: 0 1px 0 0 #4a4b4a, 0 1px 0 0 #6b6b6b inset;
 }
 
+header nav .group {
+  overflow: auto;
+  margin-bottom: -16px;
+}
+
+header nav .group button {
+  float: left;
+}
+
 header nav .group button:not(:first-child) {
   border-left: 0;
   border-radius: 0;
-  margin-left: -4px;
+  /* margin-left: -4px; */
   
   -webkit-box-shadow: 0 1px 0 0 #3C3D3C, 0 1px 0 0 #5d5e5d inset, 1px 0 0 0 #5d5e5d inset;
      -moz-box-shadow: 0 1px 0 0 #3C3D3C, 0 1px 0 0 #5d5e5d inset, 1px 0 0 0 #5d5e5d inset;
@@ -198,9 +207,9 @@ header nav .group button:last-child {
     top: 1px;
   }
   
-  header nav .group button:not(:first-child) {
+  /* header nav .group button:not(:first-child) {
     margin-left: -6px;
-  }
+  } */
 }
 
 /* opera hack */
