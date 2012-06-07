@@ -127,6 +127,7 @@ header nav button {
   border-radius: 3px;
   color: #fff;
   padding: 0 10px;
+  margin: 0;
   cursor: pointer;
   position: relative;
   top: 4px;
@@ -173,7 +174,6 @@ header nav .left button {
 }
 
 header nav .group {
-  overflow: auto;
   margin-bottom: -16px;
 }
 
@@ -184,7 +184,6 @@ header nav .group button {
 header nav .group button:not(:first-child) {
   border-left: 0;
   border-radius: 0;
-  /* margin-left: -4px; */
   
   -webkit-box-shadow: 0 1px 0 0 #3C3D3C, 0 1px 0 0 #5d5e5d inset, 1px 0 0 0 #5d5e5d inset;
      -moz-box-shadow: 0 1px 0 0 #3C3D3C, 0 1px 0 0 #5d5e5d inset, 1px 0 0 0 #5d5e5d inset;
@@ -207,15 +206,19 @@ header nav .group button:last-child {
     top: 1px;
   }
   
-  /* header nav .group button:not(:first-child) {
-    margin-left: -6px;
-  } */
+  header nav .group {
+    margin-bottom: -18px;
+  }
 }
 
 /* opera hack */
 @media all and (-webkit-min-device-pixel-ratio:10000), not all and (-webkit-min-device-pixel-ratio:0) {
   header nav button:before {
     top: 0;
+  }
+  
+  header nav .group {
+    margin-bottom: -17px;
   }
   
   /* this makes absolutly no sence, don't try to understand this! */
