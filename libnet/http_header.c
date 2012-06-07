@@ -2,6 +2,8 @@
 #include <net/http.h>
 #include <net/http_header.h>
 
+#include <ctype.h>
+
 void
 http_header_build(buffer_t *b, htbl_t *h) {
 	uint32_t i=0;
@@ -12,7 +14,7 @@ http_header_build(buffer_t *b, htbl_t *h) {
 		return;
 	}
 
-	while(NULL != htbl_enumerate(h, &i, NULL, (void **)&e)) {
+	while(NULL != htbl_enumerate(h, &i, NULL, (void **)&e, NULL)) {
 		buffer_write_formatted(b, "%s: %s%s", 
 			e->key, e->value, LIBNET_HTTP_DEL);
 	}
