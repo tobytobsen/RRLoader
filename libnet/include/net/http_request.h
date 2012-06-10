@@ -8,7 +8,10 @@
 
 struct http_ctx;
 
+#define LIBNET_HTTP_SIZE_REQLINE	256
+
 typedef struct http_request {
+	char		line[LIBNET_HTTP_SIZE_REQLINE];
 	htbl_t 		header; // general + request + entity header
 	buffer_t	body;
 } http_request_t;

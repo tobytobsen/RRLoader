@@ -36,6 +36,7 @@ http_option_set(http_ctx_t *c, http_opt_t o, void *v) {
 			opt_len = http_option_translate_method((uint32_t)(v), &opt_val);
 		} break;
 
+		case LIBNET_HTTP_OPT_PARAM:
 		case LIBNET_HTTP_OPT_AGENT: {
 			if(v == NULL) {
 				break;
@@ -95,6 +96,18 @@ http_option_get_val(struct http_ctx *c, http_opt_t o) {
 	return opt;
 }
 
+bool
+http_option_is_set(struct http_ctx *c, http_opt_t o) {
+	void *opt = http_option_get_val(c, o);
+
+	switch(o) {
+		case LIBNET_HTTP_OPT_FOLLOW: 
+			return true;
+	}
+
+	return (opt == NULL) ? false : true;
+}
+
 char *
 http_option_get_id(http_opt_t o) {
 	switch(o) {
@@ -111,7 +124,10 @@ http_option_get_id(http_opt_t o) {
 			return "follow";
 
 		case LIBNET_HTTP_OPT_CALLBACK_READ:
-			return "cbt_read";
+			return "read";
+
+		case LIBNET_HTTP_OPT_PARAM: 
+			return "param";
 
 		default: 
 			return NULL;
@@ -145,31 +161,40 @@ http_option_translate_method(http_method_t m, void **res) {
 	OPTION_START(m, METHOD);
 
 	switch(m) {
-		case LIBNET_HTTP_METHOD_GET:
+		default:
+		case LIBNET_HTTP_METHOD_GET: {
 			*res = (void *)"GET";
+		} break;
 
-		case LIBNET_HTTP_METHOD_PUT:
+		case LIBNET_HTTP_METHOD_PUT: {
 			*res = (void *)"PUT";
+		} break;
 
-		case LIBNET_HTTP_METHOD_POST:
+		case LIBNET_HTTP_METHOD_POST: {
 			*res = (void *)"POST";
+		} break;
 
-		case LIBNET_HTTP_METHOD_HEAD:
+		case LIBNET_HTTP_METHOD_HEAD: {
 			*res = (void *)"HEAD";
+		} break;
 
-		case LIBNET_HTTP_METHOD_OPTIONS:
+		case LIBNET_HTTP_METHOD_OPTIONS: {
 			*res = (void *)"OPTIONS";
+		} break;
 
-		case LIBNET_HTTP_METHOD_TRACE:
+		case LIBNET_HTTP_METHOD_TRACE: {
 			*res = (void *)"TRACE";
+		} break;
 
-		case LIBNET_HTTP_METHOD_CONNECT:
+		case LIBNET_HTTP_METHOD_CONNECT: {
 			*res = (void *)"CONNECT";
+		} break;
 
-		case LIBNET_HTTP_METHOD_DELETE:
+		case LIBNET_HTTP_METHOD_DELETE: {
 			*res = (void *)"DELETE";
+		} break;
 	}
-
+	
 	len = strlen(*(char **)res);
 	return len;
 }

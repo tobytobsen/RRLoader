@@ -9,7 +9,7 @@
 struct http_ctx;
 
 typedef enum http_ver {
-	LIBNET_HTTP_VER_10 = 0,
+	LIBNET_HTTP_VER_10 = 1,
 	LIBNET_HTTP_VER_11,
 	LIBNET_HTTP_VER_20,
 	LIBNET_HTTP_VER_UNDEFINED,
@@ -18,7 +18,7 @@ typedef enum http_ver {
 } http_ver_t;
 
 typedef enum http_method {
-	LIBNET_HTTP_METHOD_GET = 0,
+	LIBNET_HTTP_METHOD_GET = 1,
 	LIBNET_HTTP_METHOD_PUT,
 	LIBNET_HTTP_METHOD_POST,
 	LIBNET_HTTP_METHOD_HEAD,
@@ -38,6 +38,7 @@ typedef enum http_opt {
 	LIBNET_HTTP_OPT_METHOD,
 	LIBNET_HTTP_OPT_AGENT,
 
+	LIBNET_HTTP_OPT_PARAM,
 	//LIBNET_HTTP_OPT_FORM_ADD,
 
 	LIBNET_HTTP_OPT_FOLLOW,
@@ -52,6 +53,9 @@ http_option_set(struct http_ctx *c, http_opt_t o, void *v);
 
 void *
 http_option_get_val(struct http_ctx *c, http_opt_t o);
+
+bool
+http_option_is_set(struct http_ctx *c, http_opt_t o);
 
 /* internal */
 char *

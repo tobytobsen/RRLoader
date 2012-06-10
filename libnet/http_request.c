@@ -1,13 +1,22 @@
 #include <net/net.h>
+#include <net/http.h>
 #include <net/http_request.h>
 #include <net/http_options.h>
 #include <net/http_header.h>
 
 #include <string.h>
 
+#define HEADER_INSERT(tbl, _key, _val)\
+	strncpy(hf.key, (_key), LIBNET_HTTP_HEADER_SIZE_KEY);\
+	strncpy(hf.value, (_val), LIBNET_HTTP_HEADER_SIZE_VALUE);\
+	htbl_insert_copy((tbl), (_key), (void *)&hf, sizeof(hf));
+
 void
 http_request_create(struct http_ctx *c, http_request_t *r) {
+	http_header_field_t hf;
 	char *key; void *val;
+	char buf[LIBNET_HTTP_HEADER_SIZE_VALUE] = {0};
+	uint32_t len=0;
 	http_header_field_t he;
 	uint32_t i=0;
 
@@ -40,17 +49,32 @@ http_request_create(struct http_ctx *c, http_request_t *r) {
 		++i;
 	}
 
-	/* default header fields */
-	http_header_field_t he_cl = {"content-length", "0"}, // lazy :-)
-						he_ct = {"content-type", "text/plain"};
+	/* general header fields */
+	HEADER_INSERT(&r->header, "connection", "close");
 
-	htbl_insert_copy(&r->header, he_cl.key, (void *)&he_cl, sizeof(he_cl));
-	htbl_insert_copy(&r->header, he_ct.key, (void *)&he_ct, sizeof(he_ct));
+	/* request header fields */
+	/* (most parts should be in options) */
+	HEADER_INSERT(&r->header, "host", c->url.host);
 
 	/* body */
-	// do something
+	if(true == http_option_is_set(c, LIBNET_HTTP_OPT_PARAM)) {
+		char *param = http_option_get_val(c, LIBNET_HTTP_OPT_PARAM);
+		len = strlen(param),
+		buffer_write(&r->body, 1, param, len);
+	}
 
-	/* calc content length */
+	/* entity header fields */
+	if(len > 0) {
+		snprintf(buf, LIBNET_HTTP_HEADER_SIZE_VALUE-1, "%d", len);
+		HEADER_INSERT(&r->header, "content-length", buf); // todo: buf = 4, len = 4. shown = 8
+		HEADER_INSERT(&r->header, "content-type", "text/plain");
+	}
+
+	/* request line */
+	snprintf(r->line, LIBNET_HTTP_SIZE_REQLINE-1, "%s %s %s\r\n",
+		(char *)http_option_get_val(c, LIBNET_HTTP_OPT_METHOD),
+		c->url.path,
+		(char *)http_option_get_val(c, LIBNET_HTTP_OPT_VERSION));
 }
 
 void
