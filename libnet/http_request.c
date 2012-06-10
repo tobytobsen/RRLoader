@@ -66,7 +66,7 @@ http_request_create(struct http_ctx *c, http_request_t *r) {
 	/* entity header fields */
 	if(len > 0) {
 		snprintf(buf, LIBNET_HTTP_HEADER_SIZE_VALUE-1, "%d", len);
-		HEADER_INSERT(&r->header, "content-length", buf); // todo: buf = 4, len = 4. shown = 8
+		HEADER_INSERT(&r->header, "content-length", buf);
 		HEADER_INSERT(&r->header, "content-type", "text/plain");
 	}
 
@@ -86,4 +86,30 @@ http_request_release(http_request_t *r) {
 
 	htbl_release(&r->header);
 	buffer_release(&r->body);
+}
+
+uint32_t
+http_request_serialize(http_request_t *r, buffer_t *b) {
+	uint32_t len = 0;
+
+	if(r == NULL || b == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}
+
+	/* get request line */
+	buffer_write(b, 1, r->line, strlen(r->line));
+
+	/* get request header */
+	http_header_build(b, &r->header);
+
+	/* get size of request */
+	if(buffer_size(&r->body) > 0) {
+		buffer_write(b, 1, buffer_get(&r->body), buffer_size(&r->body));
+	}
+
+	len = buffer_size(b);
+	buffer_seek(b, 0);
+
+	return len;
 }

@@ -90,7 +90,7 @@ http_disconnect(http_ctx_t __inout *c) {
 void
 http_execute(http_ctx_t *c) {
 	http_request_t req;
-	buffer_t req_str;
+	buffer_t req_s;
 	uint32_t len = 0;
 
 	if(c == NULL) {
@@ -100,26 +100,15 @@ http_execute(http_ctx_t *c) {
 
 	/* build request */
 	http_request_create(c, &req);
-	buffer_create(&req_str, LIBNET_BM_MEMORY);
+	buffer_create(&req_s, LIBNET_BM_MEMORY);
 
-	/* get request line */
-	buffer_write(&req_str, 1, req.line, strlen(req.line));
-
-	/* get request header */
-	http_header_build(&req_str, &req.header);
-
-	/* get size of request */
-	if(buffer_size(&req.body) > 0) {
-		buffer_write(&req_str, 1, buffer_get(&req.body), buffer_size(&req.body));
-	}
-
-	len = buffer_size(&req_str);
-	buffer_seek(&req_str, 0);
+	/* serialize request to send */
+	len = http_request_serialize(&req, &req_s);
 
 	/* write / read */
-	//printf("%s", buffer_get(&req_str));
+	printf("%s", buffer_get(&req_s));
 
 	/* done. release */
-	buffer_release(&req_str);
+	buffer_release(&req_s);
 	http_request_release(&req);
 }

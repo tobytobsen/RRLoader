@@ -22,4 +22,7 @@ http_request_create(struct http_ctx *c, http_request_t *r);
 void
 http_request_release(http_request_t *r);
 
+uint32_t
+http_request_serialize(http_request_t *r, buffer_t *b);
+
 #endif /* LIBNET_HTTP_REQUEST_H_ */
