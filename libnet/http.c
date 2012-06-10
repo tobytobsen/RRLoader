@@ -66,6 +66,10 @@ http_connect(http_ctx_t __inout *c, const char __in *url) {
 		LIBNET_HTTP_OPT_FOLLOW,
 		LIBNET_HTTP_OPT_LONG(false));
 
+	http_option_set(c,
+		LIBNET_HTTP_OPT_AGENT,
+		LIBNET_HTTP_AGENT_DEFAULT);
+
 	return true;
 }
 
@@ -85,5 +89,37 @@ http_disconnect(http_ctx_t __inout *c) {
 
 void
 http_execute(http_ctx_t *c) {
+	http_request_t req;
+	buffer_t req_str;
+	uint32_t len = 0;
 
+	if(c == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}
+
+	/* build request */
+	http_request_create(c, &req);
+	buffer_create(&req_str, LIBNET_BM_MEMORY);
+
+	/* get request line */
+	buffer_write(&req_str, 1, req.line, strlen(req.line));
+
+	/* get request header */
+	http_header_build(&req_str, &req.header);
+
+	/* get size of request */
+	if(buffer_size(&req.body) > 0) {
+		buffer_write(&req_str, 1, buffer_get(&req.body), buffer_size(&req.body));
+	}
+
+	len = buffer_size(&req_str);
+	buffer_seek(&req_str, 0);
+
+	/* write / read */
+	//printf("%s", buffer_get(&req_str));
+
+	/* done. release */
+	buffer_release(&req_str);
+	http_request_release(&req);
 }
