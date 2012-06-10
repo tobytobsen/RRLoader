@@ -36,6 +36,9 @@ void
 htbl_create(htbl_t *tbl, uint32_t limitation);
 
 void
+htbl_create_from_htbl(htbl_t *dest, htbl_t *src);
+
+void
 htbl_release(htbl_t *tbl);
 
 void
@@ -46,6 +49,9 @@ htbl_insert(htbl_t *tbl, uint8_t *key, void *data);
 
 void
 htbl_insert_copy(htbl_t *tbl, uint8_t *key, void *data, uint32_t size);
+
+void
+htbl_copy(htbl_t *dest, htbl_t *src);
 
 void
 htbl_remove(htbl_t *tbl, uint8_t *key);
@@ -60,6 +66,6 @@ uint32_t
 htbl_size(htbl_t *tbl);
 
 void *
-htbl_enumerate(htbl_t *tbl, uint32_t *i, uint8_t **hash, void **data);
+htbl_enumerate(htbl_t *tbl, uint32_t *i, uint8_t **hash, void **data, uint32_t *size);
 
 #endif /* LIBNET_HASHTBL_H_ */
