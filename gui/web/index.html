@@ -1,34 +1,56 @@
 <!DOCTYPE html>
 <!-- 
-     ___  ___  __               __           ___          __       __
-    / _ \/ _ \/ /  ___ ___ ____/ /___ ____  / _ \___ ____/ /_____ / /
-   / , _/ , _/ /__/ _ | _ `/ _  // -_) __/ / , _/ _ | __/  '_(_-</_/ 
-  /_/|_/_/|_/____/\___|_,_/\_,_/ \__/_/   /_/|_|\___|__/_/\_|___(_)  
+     __                __              ___           __        __
+    / /  ___  ___ ____/ /__ ________  / _ \___  ____/ /__ ___ / /
+   / /__/ _ \/ _ `/ _  / -_) __/ __/ / , _/ _ \/ __/  '_/(_-</_/ 
+  /____/\___/\_,_/\_,_/\__/_/ /_/   /_/|_|\___/\__/_/\_\/___(_)
   
   Copyright 2012 - Some rights reserved
 -->
 <html lang="de">
   <head>
     <meta http-equiv="Content-Type" content="text/html; Charset=UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
     
-    <title>RRLoader Web</title>
+    <title>LoadeRR Web-UI</title>
     <link rel="stylesheet" href="img/style.css" type="text/css" />
   </head>
   <body>
     <header>
-    
+      <h1>loaderr</h1>
+      <nav>
+        <div class="left">
+          <button class="icon plus"></button>
+        </div>
+        
+        <div class="group">
+          <button class="icon play"></button>
+          <button class="icon pause"></button>
+          <button class="icon stop"></button>
+        </div>
+        
+        <button class="icon stop"></button>
+        
+        <div class="right">
+          <button class="icon conf"></button>
+        </div>
+      </nav>
     </header>
     
     <div id="main">
-      <h1>It works!</h1>
+      <h2>WIP</h2>
     </div>
     
     <footer>
     
     </footer>
     
-    <script type="text/javascript" src="js/x.min.js"></script>
+    <!--[if lt IE 9]>
+      <script type="text/javascript" src="js/lib/html5.min.js"></script>
+      <script type="text/javascript" src="js/lib/sizzle.min.js"></script>
+    <![endif]-->
+    
+    <script type="text/javascript" src="js/lib/x.min.js"></script>
     <script type="text/javascript" src="js/main.js"></script>
-    <script type="text/javascript" src="js/websocket.js"></script>
   </body>
 </html>
