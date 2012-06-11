@@ -29,6 +29,11 @@ http_connect(http_ctx_t __inout *c, const char __in *url) {
 		no port is set */
 	ssl = !strcmp(c->url.scheme, "https") ? true : false;
 
+	if(ssl == false && strcmp(c->url.scheme, "http")) {
+		/* scheme not supported */
+		return false;
+	}
+
 	if(c->url.port == 0) {
 		c->url.port = ssl ? LIBNET_HTTPS_PORT_DEF : LIBNET_HTTP_PORT_DEF;
 	}
