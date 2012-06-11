@@ -8,6 +8,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+/*
+	todo: handle duplicates (instead of ignoring them)
+*/
+
 htbl_ent_t *
 find_free_entity(htbl_t *tbl, uint8_t *key, uint8_t *hash) {
 	uint32_t i;
@@ -25,7 +29,7 @@ find_free_entity(htbl_t *tbl, uint8_t *key, uint8_t *hash) {
 	if(key != NULL) {
 		htbl_ent_t *e;
 		if((e = htbl_get(tbl, key)) != NULL) {
-			return e; // duplicate
+			return NULL; // duplicate
 		}
 	}
 
@@ -33,6 +37,7 @@ find_free_entity(htbl_t *tbl, uint8_t *key, uint8_t *hash) {
 		if(hash != NULL && !memcmp(tbl->entity[i].hash,
 			hash, LIBNET_HASH_SIZE)) {
 			// duplicate
+			//return &tbl->entity[i];
 			return NULL;
 		}
 
@@ -237,12 +242,14 @@ htbl_insert_copy(htbl_t *tbl, uint8_t *key, void *data, uint32_t size) {
 
 	if(e->size > 0 && e->data != NULL) {
 		free(e->data);
+		e->size = 0;
 	}
 
 	e->data = calloc(1, size);
 
 	if(e->data == NULL) {
 		libnet_error_set(LIBNET_E_MEM);
+
 		return;
 	}
 
@@ -315,12 +322,11 @@ htbl_remove(htbl_t *tbl, uint8_t *key) {
 
 		if(tbl->entity[i].size != 0) {
 			free(tbl->entity[i].data);
-
-			tbl->entity[i].size = 0;
-			tbl->entity[i].data = NULL;
-
 			memset(tbl->entity[i].hash, 0, LIBNET_HASH_SIZE);
 		}
+
+		tbl->entity[i].size = 0;
+		tbl->entity[i].data = NULL;
 
 		tbl->entities--;
 	}
