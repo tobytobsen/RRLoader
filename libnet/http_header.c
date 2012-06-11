@@ -26,6 +26,7 @@ void
 http_header_parse(htbl_t *h, buffer_t *b) {
 	int eoh = 0;
 	char l=0, c = ' ', *t;
+	bool kv = false;
 	http_header_field_t e = {0};
 
 	if(b == NULL || h == NULL) {
@@ -40,11 +41,10 @@ http_header_parse(htbl_t *h, buffer_t *b) {
 	while(eoh < 4 && c != 0) {
 		int len = buffer_read(b, &c, 1);
 
-		if(c == ':') {
+		if(c == ':' && kv == false) {
+			kv = true;
 			t = &e.value;
-		} else if(isalpha(c) || isdigit(c) || ispunct(c)) {
-			*t++ = tolower(c);
-		} else if(iscntrl(c)) {
+		} else if(/*iscntrl(c)*/c == '\r' || c == '\n') {
 			if(l != '\r' && l != '\n') {
 				eoh = 0;
 			}
@@ -52,10 +52,21 @@ http_header_parse(htbl_t *h, buffer_t *b) {
 			eoh++;
 
 			if(l == '\r' && c == '\n') {
-				htbl_insert_copy(h, e.key, (void *)&e, sizeof(http_header_field_t));
+				if(kv == true) {
+					//printf("setting: %s -> %s\n", e.key, e.value);
+					htbl_insert_copy(h, e.key, (void *)&e, sizeof(http_header_field_t));
+				}
 
-				t = &e.key;
 				memset(&e, 0, sizeof(http_header_field_t));
+				t = &e.key;
+
+				kv = false;
+			}
+		} else {
+			if(isspace(c) && kv == true && strlen(e.value) == 0) {
+				
+			} else {
+				*t++ = tolower(c);
 			}
 		}
 
