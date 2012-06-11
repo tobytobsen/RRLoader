@@ -16,6 +16,10 @@ typedef struct http_request {
 	buffer_t	body;
 } http_request_t;
 
+// not needed now, we don't act as a server
+//void
+//http_request_parse(struct http_ctx *c, http_request_t *r, buffer_t *d);
+
 void
 http_request_create(struct http_ctx *c, http_request_t *r);
 

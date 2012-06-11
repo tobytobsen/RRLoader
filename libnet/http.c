@@ -90,7 +90,9 @@ http_disconnect(http_ctx_t __inout *c) {
 void
 http_execute(http_ctx_t *c) {
 	http_request_t req;
-	buffer_t req_s;
+	http_response_t res;
+	buffer_t req_s, res_s;
+	char buf[LIBNET_HTTP_SIZE_CHUNK] = {0};
 	uint32_t len = 0;
 
 	if(c == NULL) {
@@ -100,15 +102,84 @@ http_execute(http_ctx_t *c) {
 
 	/* build request */
 	http_request_create(c, &req);
-	buffer_create(&req_s, LIBNET_BM_MEMORY);
+	buffer_create(&req_s, LIBNET_BM_FILE);
+	buffer_create(&res_s, LIBNET_BM_FILE);
 
 	/* serialize request to send */
 	len = http_request_serialize(&req, &req_s);
 
 	/* write / read */
-	printf("%s", buffer_get(&req_s));
+	http_send(c, &req_s, len);
+	http_read_header(c, &res_s);
+
+	/* request sent, response read. 
+		handle response */
+
+	http_response_parse(c, &res, &res_s);
+	/* 
+		content handling here
+	*/
+	if(http_option_is_set(c, LIBNET_HTTP_OPT_CALLBACK_READ)) {
+		http_cb_read_t cb_r = http_option_get_val(c, LIBNET_HTTP_OPT_CALLBACK_READ);
+		uint32_t total = buffer_size(&res.body), i = 0;
+
+		buffer_seek(&res.body, 0);
+
+		while(i < total) {
+			i += buffer_read(&res.body, buf, LIBNET_HTTP_SIZE_CHUNK);
+			cb_r(buf, LIBNET_HTTP_SIZE_CHUNK);
+		}
+	}
+
+	http_response_release(&res);
 
 	/* done. release */
 	buffer_release(&req_s);
+	buffer_release(&res_s);
+
 	http_request_release(&req);
 }
+
+void
+http_send(http_ctx_t *c, buffer_t *rs, uint32_t len) {
+	uint32_t o = 0, len_read;
+	char buf[LIBNET_HTTP_SIZE_CHUNK] = {0};
+
+	if(c == NULL || rs == NULL || len == 0) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}
+
+	while(o < len) {
+		len_read += buffer_read(rs, buf, LIBNET_HTTP_SIZE_CHUNK);
+		socket_write(&c->socket, buf, len_read);
+
+		o += len_read;
+	}
+}
+
+void
+http_read_header(http_ctx_t *c, buffer_t *rs) {
+	char buf[LIBNET_HTTP_SIZE_CHUNK] = {0};
+	uint32_t i=0;
+
+	if(c == NULL || rs == NULL) {
+		libnet_error_set(LIBNET_E_INV_ARG);
+		return;
+	}
+
+	buffer_seek(rs, 0);
+
+	while(0 != socket_read(&c->socket, buf+i, 1)) {
+		buffer_write(rs, 1, buf+i++, 1);
+
+		if(i == LIBNET_HTTP_SIZE_CHUNK) {
+			i = 0;
+		}
+
+		if(strstr(buf, LIBNET_HTTP_EOH)) {
+			break;
+		}
+	}
+}
+

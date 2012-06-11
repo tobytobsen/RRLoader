@@ -3,11 +3,10 @@
 
 #include <types.h>
 
+#include <net/http_def.h>
+
 #include <net/hash_table.h>
 #include <net/buffer.h>
-
-#define LIBNET_HTTP_HEADER_SIZE_KEY		32
-#define LIBNET_HTTP_HEADER_SIZE_VALUE	256
 
 struct http_ctx;
 
