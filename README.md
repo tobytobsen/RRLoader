@@ -32,7 +32,7 @@ Pfad: `/gui/java`
 ## coach
 Unsere QA 
 
-## osiris, coach
+## osiris, coach, Lorenz
 Übersetzer div. Sprachen
 
 
